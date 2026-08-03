@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f5f1e8;
+  --paper-raised: #fffcf7;
+  --ink: #0e0e0e;
+  --forest: #1f3d2b;
+  --indigo: #5b5bd6;
+  --yellow: #ffe629;
+  --mint: #6fe0b7;
+  --mint-soft: #dff7ed;
+  --income: #087a5b;
+  --rose: #ff9db7;
+  --expense: #b4234d;
+  --mist: #e7eadf;
+  --border: #ddd8ce;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-forest: var(--forest);
+  --color-indigo: var(--indigo);
+  --color-yellow: var(--yellow);
+  --color-mint: var(--mint);
+  --color-mint-soft: var(--mint-soft);
+  --color-income: var(--income);
+  --color-rose: var(--rose);
+  --color-expense: var(--expense);
+  --color-mist: var(--mist);
+  --color-border: var(--border);
+  --font-sans: var(--font-be-vietnam-pro);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 14% 8%, rgb(255 230 41 / 18%), transparent 24rem),
+    linear-gradient(145deg, #faf7f0 0%, var(--paper) 46%, #edf0e7 100%);
+  color: var(--ink);
+  font-family: var(--font-be-vietnam-pro), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgb(31 61 43 / 9%) 0.8px, transparent 0.8px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(to bottom, black, transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+::selection {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--indigo);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 0.75rem;
+  z-index: 100;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 800;
+  transform: translateY(calc(-100% - 2rem));
+  transition: transform 180ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.brand-mark {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-radius: 55% 45% 65% 35%;
+  transform: rotate(-28deg);
+}
+
+.brand-mark::after {
+  position: absolute;
+  right: 2px;
+  bottom: -2px;
+  width: 2px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  transform: rotate(42deg);
+  transform-origin: bottom;
+}
+
+.ambient {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+.ambient-one {
+  top: 20rem;
+  left: -9rem;
+  width: 18rem;
+  height: 18rem;
+  border: 3rem solid rgb(91 91 214 / 8%);
+}
+
+.ambient-two {
+  right: -7rem;
+  bottom: 13rem;
+  width: 16rem;
+  height: 16rem;
+  background: rgb(31 61 43 / 5%);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-rise {
+  animation: rise-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.motion-delay-1 {
+  animation-delay: 80ms;
+}
+
+.motion-delay-2 {
+  animation-delay: 170ms;
+}
+
+.motion-delay-3 {
+  animation-delay: 260ms;
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sheet-enter {
+  animation: sheet-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.toast-enter {
+  animation: toast-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
