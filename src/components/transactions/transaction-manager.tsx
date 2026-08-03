@@ -4,8 +4,11 @@ import { useActionState, useCallback, useEffect, useMemo, useState, type FormEve
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   FileClock,
   Pencil,
   Search,
@@ -17,7 +20,6 @@ import { useRouter } from "next/navigation";
 import {
   createTransactionAction,
   deleteTransactionAction,
-  initialTransactionActionState,
   updateTransactionAction,
 } from "@/app/(app)/transactions/actions";
 import { AuthFeedback } from "@/components/auth/auth-feedback";
@@ -25,14 +27,20 @@ import { PageHeader } from "@/components/app/page-header";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
-import { type CategoryType } from "@/lib/categories/constants";
+import { categoryTypeLabelLowercase, type CategoryType } from "@/lib/categories/constants";
 import { CATEGORY_ICONS, CATEGORY_ICON_FALLBACK } from "@/lib/categories/icons";
-import { evaluateAmountExpression } from "@/lib/transactions/amount-calculator";
+import {
+  evaluateAmountExpression,
+  formatAmountExpressionInput,
+  formatAmountValue,
+} from "@/lib/transactions/amount-calculator";
+import { initialTransactionActionState } from "@/lib/transactions/action-state";
 import {
   clearTransactionDraft,
   readTransactionDraft,
@@ -47,6 +55,8 @@ import {
   type TransactionSummary,
   type TransactionView,
 } from "@/lib/transactions/data";
+
+const COLLAPSED_CATEGORY_LIMIT = 9;
 
 export function TransactionsManager({
   transactions,
@@ -255,14 +265,20 @@ function DeleteTransactionButton({ transaction }: { transaction: TransactionView
   }, [notify, router, state.message, state.status]);
 
   return (
-    <form action={formAction} onSubmit={(event) => {
-      if (!transaction.canDelete || !window.confirm("Giao dịch này sẽ bị xóa khỏi household hiện tại.")) event.preventDefault();
-    }}>
+    <ConfirmAction
+      action={formAction}
+      confirmLabel="Xóa giao dịch"
+      description={`Khoản ${formatMoney(transaction.amount)} thuộc danh mục ${transaction.categoryName} sẽ bị xóa khỏi household hiện tại. Thao tác này không thể hoàn tác.`}
+      pending={pending}
+      title="Xóa giao dịch này?"
+      trigger={(openDialog) => (
+        <Button aria-label={`Xóa giao dịch ${transaction.categoryName}`} disabled={pending || !transaction.canDelete} onClick={openDialog} size="icon" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" className="size-4 text-expense" />
+        </Button>
+      )}
+    >
       <input name="transactionId" type="hidden" value={transaction.id} readOnly />
-      <Button aria-label={`Xóa giao dịch ${transaction.categoryName}`} disabled={pending || !transaction.canDelete} size="icon" variant="ghost">
-        <Trash2 aria-hidden="true" className="size-4 text-expense" />
-      </Button>
-    </form>
+    </ConfirmAction>
   );
 }
 
@@ -285,10 +301,11 @@ export function TransactionForm({
   const [type, setType] = useState<CategoryType>(transaction?.type ?? "expense");
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? "");
   const [userId, setUserId] = useState(transaction?.userId ?? currentUserId);
-  const [amountExpression, setAmountExpression] = useState(transaction ? String(transaction.amount) : "");
+  const [amountExpression, setAmountExpression] = useState(transaction ? formatAmountValue(transaction.amount) : "");
   const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate.slice(0, 10) ?? localDateInput());
   const [note, setNote] = useState(transaction?.note ?? "");
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [draftReady, setDraftReady] = useState(Boolean(transaction));
   const [draftDirty, setDraftDirty] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -296,6 +313,12 @@ export function TransactionForm({
   const action = transaction ? updateTransactionAction : createTransactionAction;
   const [state, formAction, pending] = useActionState(action, initialTransactionActionState);
   const visibleCategories = categories.filter((category) => category.type === type);
+  const selectedCategoryIndex = visibleCategories.findIndex((category) => category.id === categoryId);
+  const selectedCategoryIsOutsideCollapsed = selectedCategoryIndex >= COLLAPSED_CATEGORY_LIMIT;
+  const categoriesExpanded = showAllCategories || selectedCategoryIsOutsideCollapsed;
+  const displayedCategories = categoriesExpanded
+    ? visibleCategories
+    : visibleCategories.slice(0, COLLAPSED_CATEGORY_LIMIT);
   const amountResult = evaluateAmountExpression(amountExpression);
 
   useEffect(() => {
@@ -312,7 +335,7 @@ export function TransactionForm({
         setType(draft.type);
         setCategoryId(categoryIsAvailable ? draft.categoryId : "");
         setUserId(memberIsAvailable ? draft.userId : currentUserId);
-        setAmountExpression(draft.amountExpression);
+        setAmountExpression(formatAmountExpressionInput(draft.amountExpression));
         setTransactionDate(draft.transactionDate);
         setNote(draft.note);
         setDraftRestored(true);
@@ -388,13 +411,13 @@ export function TransactionForm({
   const selectType = (nextType: CategoryType) => {
     setDraftDirty(true);
     setType(nextType);
-    const first = categories.find((category) => category.type === nextType);
-    setCategoryId(first?.id ?? "");
+    setCategoryId("");
+    setShowAllCategories(false);
   };
 
   const appendCalculator = (value: string) => {
     setDraftDirty(true);
-    setAmountExpression((current) => `${current}${value}`);
+    setAmountExpression((current) => formatAmountExpressionInput(`${current}${value}`));
   };
   const clearCalculator = () => {
     setDraftDirty(true);
@@ -407,7 +430,7 @@ export function TransactionForm({
   const calculate = () => {
     if (amountResult.isValid && amountResult.value !== null) {
       setDraftDirty(true);
-      setAmountExpression(String(amountResult.value));
+      setAmountExpression(formatAmountValue(amountResult.value));
     }
   };
 
@@ -470,7 +493,7 @@ export function TransactionForm({
             name="amountExpression"
             onChange={(event) => {
               setDraftDirty(true);
-              setAmountExpression(event.target.value);
+              setAmountExpression(formatAmountExpressionInput(event.target.value));
             }}
             placeholder="Ví dụ: 125.000 + 25.000"
             value={amountExpression}
@@ -486,15 +509,6 @@ export function TransactionForm({
           {state.fieldErrors?.amountExpression ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.amountExpression}</p> : null}
           {showCalculator ? <CalculatorPad onAppend={appendCalculator} onBackspace={backspaceCalculator} onCalculate={calculate} onClear={clearCalculator} /> : null}
         </div>
-
-        <Select disabled={pending || visibleCategories.length === 0} label="Danh mục" name="categoryId" onChange={(event) => {
-          setDraftDirty(true);
-          setCategoryId(event.target.value);
-        }} required value={categoryId}>
-          <option disabled value="">{visibleCategories.length ? "Chọn danh mục" : "Chưa có danh mục phù hợp"}</option>
-          {visibleCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </Select>
-        {state.fieldErrors?.categoryId ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.categoryId}</p> : null}
 
         <Select disabled={pending || members.length === 0} label="Người thực hiện" name="userId" onChange={(event) => {
           setDraftDirty(true);
@@ -520,7 +534,81 @@ export function TransactionForm({
         </label>
         {state.fieldErrors?.note ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.note}</p> : null}
 
-        <div className="grid grid-cols-[0.72fr_1.28fr] gap-3 pt-1">
+        <fieldset disabled={pending}>
+          <legend className="mb-2 text-sm font-extrabold text-ink/76">
+            Chọn danh mục {categoryTypeLabelLowercase(type)}
+          </legend>
+          <input name="categoryId" type="hidden" value={categoryId} readOnly />
+          {visibleCategories.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {displayedCategories.map((category) => {
+                  const Icon = CATEGORY_ICONS[category.icon] ?? CATEGORY_ICON_FALLBACK;
+                  const selected = categoryId === category.id;
+
+                  return (
+                    <button
+                      aria-label={`${selected ? "Đã chọn" : "Chọn"} danh mục ${category.name}`}
+                      aria-pressed={selected}
+                      className={`relative flex min-h-24 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition ${selected ? "font-extrabold shadow-sm" : "border-forest/10 bg-paper-raised/66 font-bold hover:border-forest/22 hover:bg-mist/55"}`}
+                      key={category.id}
+                      onClick={() => {
+                        setDraftDirty(true);
+                        setCategoryId(category.id);
+                      }}
+                      style={selected ? { backgroundColor: `${category.color}18`, borderColor: category.color } : undefined}
+                      type="button"
+                    >
+                      {selected ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute right-2 top-2 grid size-5 place-items-center rounded-full text-white"
+                          style={{ backgroundColor: category.color }}
+                        >
+                          <Check className="size-3" strokeWidth={3} />
+                        </span>
+                      ) : null}
+                      <span
+                        className="grid size-10 place-items-center rounded-full"
+                        style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                      >
+                        <Icon aria-hidden="true" className="size-5" />
+                      </span>
+                      <span className="line-clamp-2 max-w-full text-xs leading-4 text-ink">
+                        {category.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {visibleCategories.length > COLLAPSED_CATEGORY_LIMIT && !(categoriesExpanded && selectedCategoryIsOutsideCollapsed) ? (
+                <Button
+                  className="mt-2 w-full"
+                  onClick={() => setShowAllCategories((current) => !current)}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  {categoriesExpanded ? (
+                    <><ChevronUp aria-hidden="true" className="size-4" /> Thu gọn</>
+                  ) : (
+                    <><ChevronDown aria-hidden="true" className="size-4" /> Xem thêm {visibleCategories.length - COLLAPSED_CATEGORY_LIMIT} danh mục</>
+                  )}
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-forest/16 bg-mist/40 p-4 text-center">
+              <p className="text-sm font-bold text-ink/52">Chưa có danh mục {categoryTypeLabelLowercase(type)}.</p>
+              <Link className="mt-2 inline-flex min-h-10 items-center rounded-xl px-3 text-sm font-extrabold text-forest hover:bg-mist" href="/categories">
+                Tạo danh mục mới
+              </Link>
+            </div>
+          )}
+          {state.fieldErrors?.categoryId ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.categoryId}</p> : null}
+        </fieldset>
+
+        <div className="sticky bottom-0 z-20 -mx-5 mt-1 grid grid-cols-[0.72fr_1.28fr] gap-3 border-t border-forest/10 bg-paper/96 px-5 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgba(31,61,43,0.08)] backdrop-blur-xl sm:-mx-6 sm:px-6 sm:pb-0">
           <Button disabled={pending} onClick={closeForm} type="button" variant="secondary">Hủy</Button>
           <Button disabled={pending || visibleCategories.length === 0 || members.length === 0 || (!online && Boolean(transaction))} type="submit">
             {pending ? "Đang lưu..." : !online && !transaction ? "Lưu bản nháp" : transaction ? "Lưu thay đổi" : "Lưu giao dịch"}

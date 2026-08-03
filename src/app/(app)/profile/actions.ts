@@ -10,14 +10,7 @@ import {
   validateHouseholdName,
 } from "@/lib/profile/validation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-export type ProfileActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Partial<Record<"fullName" | "householdName" | "newOwnerId" | "confirmation", string>>;
-};
-
-export const initialProfileActionState: ProfileActionState = { status: "idle" };
+import type { ProfileActionState } from "@/lib/profile/action-state";
 
 export async function updateProfileNameAction(
   _previousState: ProfileActionState,

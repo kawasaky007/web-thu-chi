@@ -5,6 +5,16 @@ export type AmountCalculationResult = {
   isValid: boolean;
 };
 
+/** Formats editable amount tokens while preserving calculator operators. */
+export function formatAmountExpressionInput(input: string) {
+  const safeInput = input.replace(/[^0-9.,+\-*/()%\s×÷]/g, "");
+  return safeInput.replace(/\d[\d.,]*/g, formatAmountToken);
+}
+
+export function formatAmountValue(value: number) {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
+}
+
 export function sanitizeAmountExpression(input: string) {
   const normalizedOperators = input.replaceAll("×", "*").replaceAll("÷", "/");
 
@@ -37,6 +47,28 @@ export function evaluateAmountExpression(input: string): AmountCalculationResult
 
 function invalidAmount(expression: string, errorMessage: string): AmountCalculationResult {
   return { expression, value: null, errorMessage, isValid: false };
+}
+
+function formatAmountToken(token: string) {
+  const trailingSeparator = /[.,]$/.test(token);
+  const lastDot = token.lastIndexOf(".");
+  const lastComma = token.lastIndexOf(",");
+  const separatorIndex = Math.max(lastDot, lastComma);
+  const separator = separatorIndex >= 0 ? token[separatorIndex] : null;
+  const fraction = separator ? token.slice(separatorIndex + 1) : "";
+
+  if (separator && !trailingSeparator && fraction.length > 0 && fraction.length < 3) {
+    const integer = token.slice(0, separatorIndex).replace(/[.,]/g, "");
+    return `${groupInteger(integer)}${separator}${fraction}`;
+  }
+
+  const digits = token.replace(/[.,]/g, "");
+  return `${groupInteger(digits)}${trailingSeparator ? separator ?? "" : ""}`;
+}
+
+function groupInteger(value: string) {
+  if (!value) return value;
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function normalizeNumberSeparators(input: string) {

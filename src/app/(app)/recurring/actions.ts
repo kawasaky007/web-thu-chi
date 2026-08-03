@@ -6,17 +6,9 @@ import { getCurrentMembership } from "@/lib/auth/session";
 import {
   readRecurringFormString,
   validateRecurringInput,
-  type RecurringField,
 } from "@/lib/recurring/validation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-export type RecurringActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Partial<Record<RecurringField | "ruleId", string>>;
-};
-
-export const initialRecurringActionState: RecurringActionState = { status: "idle" };
+import type { RecurringActionState } from "@/lib/recurring/action-state";
 
 export async function createRecurringRuleAction(
   _previousState: RecurringActionState,

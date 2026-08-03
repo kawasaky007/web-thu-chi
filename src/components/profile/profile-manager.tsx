@@ -20,7 +20,6 @@ import Link from "next/link";
 
 import {
   deleteHouseholdAction,
-  initialProfileActionState,
   leaveHouseholdAction,
   renameHouseholdAction,
   transferOwnershipAction,
@@ -36,6 +35,7 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { getInitials } from "@/lib/auth/display";
+import { initialProfileActionState } from "@/lib/profile/action-state";
 import type { HouseholdMemberView } from "@/lib/profile/data";
 
 type HouseholdView = {

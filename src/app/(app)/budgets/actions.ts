@@ -11,14 +11,7 @@ import {
   readBudgetFormString,
   validateBudgetMonth,
 } from "@/lib/budgets/validation";
-
-export type BudgetActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Partial<Record<"categoryId" | "amount" | "month" | "orderedIds", string>>;
-};
-
-export const initialBudgetActionState: BudgetActionState = { status: "idle" };
+import type { BudgetActionState } from "@/lib/budgets/action-state";
 
 export async function upsertBudgetAction(
   _previousState: BudgetActionState,
@@ -134,7 +127,7 @@ export async function reorderBudgetsAction(
   const { error } = await context.supabase.rpc("reorder_budgets", { p_ordered_ids: orderedIds });
   if (error) return mapBudgetError(error);
   revalidateBudgetPaths();
-  return { status: "success" };
+  return { status: "success", message: "Đã cập nhật thứ tự ngân sách." };
 }
 
 export async function cloneBudgetAction(

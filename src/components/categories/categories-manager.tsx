@@ -15,7 +15,6 @@ import { useRouter } from "next/navigation";
 import {
   createCategoryAction,
   deleteCategoryAction,
-  initialCategoryActionState,
   moveCategoryAction,
   updateCategoryAction,
 } from "@/app/(app)/categories/actions";
@@ -23,6 +22,7 @@ import { AuthFeedback } from "@/components/auth/auth-feedback";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
@@ -36,6 +36,7 @@ import {
   categoryTypeLabelLowercase,
   type CategoryType,
 } from "@/lib/categories/constants";
+import { initialCategoryActionState } from "@/lib/categories/action-state";
 import { CATEGORY_ICONS, CATEGORY_ICON_FALLBACK } from "@/lib/categories/icons";
 import { normalizeCategoryName } from "@/lib/categories/validation";
 
@@ -374,20 +375,21 @@ function DeleteCategoryButton({ category }: { category: CategoryView }) {
   }, [notify, router, state.message, state.status]);
 
   return (
-    <form
+    <ConfirmAction
       action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm(`Xóa danh mục "${category.name}" khỏi household hiện tại?`)) {
-          event.preventDefault();
-        }
-      }}
+      confirmLabel="Xóa danh mục"
+      description={`Danh mục “${category.name}” sẽ bị xóa khỏi household hiện tại. Danh mục đang được sử dụng có thể không xóa được.`}
+      pending={pending}
+      title="Xóa danh mục này?"
+      trigger={(openDialog) => (
+        <Button aria-label={`Xóa ${category.name}`} disabled={pending} onClick={openDialog} size="icon" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" className="size-4 text-expense" />
+        </Button>
+      )}
     >
       <input name="categoryId" type="hidden" value={category.id} readOnly />
-      <Button aria-label={`Xóa ${category.name}`} disabled={pending} size="icon" variant="ghost">
-        <Trash2 aria-hidden="true" className="size-4 text-expense" />
-      </Button>
       {state.status === "error" ? <span className="sr-only">{state.message}</span> : null}
-    </form>
+    </ConfirmAction>
   );
 }
 
@@ -418,7 +420,7 @@ function MoveCategoryButton({
     <form action={formAction}>
       <input name="categoryId" type="hidden" value={categoryId} readOnly />
       <input name="direction" type="hidden" value={direction} readOnly />
-      <Button aria-label={label} disabled={disabled || pending} size="icon" variant="ghost">
+      <Button aria-label={label} disabled={disabled || pending} size="icon" type="submit" variant="ghost">
         {direction === "up" ? <TrendingUp aria-hidden="true" className="size-4 rotate-[-45deg]" /> : <TrendingDown aria-hidden="true" className="size-4 rotate-[-45deg]" />}
       </Button>
     </form>

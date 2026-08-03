@@ -7,11 +7,11 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() })
 import {
   createTransactionAction,
   deleteTransactionAction,
-  initialTransactionActionState,
   updateTransactionAction,
 } from "./actions";
 import { getCurrentMembership } from "@/lib/auth/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { initialTransactionActionState } from "@/lib/transactions/action-state";
 
 const getMembership = vi.mocked(getCurrentMembership);
 const createClient = vi.mocked(createServerSupabaseClient);

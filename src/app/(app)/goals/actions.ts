@@ -8,18 +8,9 @@ import {
   readSavingsFormString,
   validateSavingsEntryInput,
   validateSavingsGoalInput,
-  type SavingsEntryField,
-  type SavingsGoalField,
 } from "@/lib/goals/validation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-export type SavingsActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Partial<Record<SavingsGoalField | SavingsEntryField, string>>;
-};
-
-export const initialSavingsActionState: SavingsActionState = { status: "idle" };
+import type { SavingsActionState } from "@/lib/goals/action-state";
 
 export async function createSavingsGoalAction(
   _previousState: SavingsActionState,

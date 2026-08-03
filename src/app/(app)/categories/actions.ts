@@ -8,16 +8,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   readCategoryFormString,
   validateCategoryInput,
-  type CategoryField,
 } from "@/lib/categories/validation";
-
-export type CategoryActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  fieldErrors?: Partial<Record<CategoryField, string>>;
-};
-
-export const initialCategoryActionState: CategoryActionState = { status: "idle" };
+import type { CategoryActionState } from "@/lib/categories/action-state";
 
 export async function createCategoryAction(
   _previousState: CategoryActionState,

@@ -21,7 +21,6 @@ import {
 import {
   createRecurringRuleAction,
   deleteRecurringRuleAction,
-  initialRecurringActionState,
   materializeRecurringTransactionsAction,
   toggleRecurringRuleAction,
   updateRecurringRuleAction,
@@ -30,12 +29,14 @@ import { PageHeader } from "@/components/app/page-header";
 import { RecurringReminderSettings } from "@/components/recurring/recurring-reminder-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/status-state";
 import { useToast } from "@/components/ui/toast";
+import { initialRecurringActionState } from "@/lib/recurring/action-state";
 import {
   describeRecurringSchedule,
   currentVietnamDate,
@@ -297,14 +298,20 @@ function DeleteRuleButton({ rule }: { rule: RecurringRuleView }) {
   const { notify } = useToast();
   useActionFeedback(state, notify);
   return (
-    <form action={action} onSubmit={(event) => {
-      if (!window.confirm(`Xóa lịch định kỳ “${rule.categoryName}”? Các giao dịch đã ghi vẫn được giữ.`)) event.preventDefault();
-    }}>
+    <ConfirmAction
+      action={action}
+      confirmLabel="Xóa lịch"
+      description={`Lịch định kỳ “${rule.categoryName}” sẽ bị xóa. Các giao dịch đã được ghi trước đó vẫn được giữ nguyên.`}
+      pending={pending}
+      title="Xóa lịch định kỳ?"
+      trigger={(openDialog) => (
+        <Button aria-label={`Xóa ${rule.categoryName}`} className="w-full" disabled={pending} onClick={openDialog} size="sm" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" className="size-4 text-expense" /><span className="hidden text-expense sm:inline">Xóa</span>
+        </Button>
+      )}
+    >
       <input name="ruleId" type="hidden" value={rule.id} />
-      <Button aria-label={`Xóa ${rule.categoryName}`} className="w-full" disabled={pending} size="sm" type="submit" variant="ghost">
-        <Trash2 aria-hidden="true" className="size-4 text-expense" /><span className="hidden text-expense sm:inline">Xóa</span>
-      </Button>
-    </form>
+    </ConfirmAction>
   );
 }
 

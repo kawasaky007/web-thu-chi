@@ -29,7 +29,6 @@ import {
 import {
   createSavingsGoalAction,
   deleteEmptySavingsGoalAction,
-  initialSavingsActionState,
   recordSavingsGoalEntryAction,
   setSavingsGoalStatusAction,
   updateSavingsGoalAction,
@@ -37,12 +36,14 @@ import {
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/status-state";
 import { useToast } from "@/components/ui/toast";
+import { initialSavingsActionState } from "@/lib/goals/action-state";
 import type {
   SavingsEntryType,
   SavingsGoalView,
@@ -317,10 +318,19 @@ function ArchiveButton({ goal }: { goal: SavingsGoalView }) {
   const { notify } = useToast();
   useActionFeedback(state, notify);
   return (
-    <form action={action} onSubmit={(event) => { if (!window.confirm(`Lưu trữ mục tiêu “${goal.name}”? Lịch sử quỹ vẫn được giữ.`)) event.preventDefault(); }}>
+    <ConfirmAction
+      action={action}
+      confirmLabel="Lưu trữ"
+      description={`Mục tiêu “${goal.name}” sẽ được chuyển vào kho lưu trữ. Toàn bộ lịch sử quỹ vẫn được giữ và bạn có thể khôi phục sau.`}
+      pending={pending}
+      title="Lưu trữ mục tiêu?"
+      tone="warning"
+      trigger={(openDialog) => (
+        <Button aria-label={`Lưu trữ ${goal.name}`} disabled={pending} onClick={openDialog} size="sm" type="button" variant="ghost"><Archive aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Lưu trữ</span></Button>
+      )}
+    >
       <input name="goalId" type="hidden" value={goal.id} /><input name="status" type="hidden" value="archived" />
-      <Button aria-label={`Lưu trữ ${goal.name}`} disabled={pending} size="sm" type="submit" variant="ghost"><Archive aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Lưu trữ</span></Button>
-    </form>
+    </ConfirmAction>
   );
 }
 
@@ -335,7 +345,20 @@ function DeleteEmptyGoalButton({ goal }: { goal: SavingsGoalView }) {
   const [state, action, pending] = useActionState(deleteEmptySavingsGoalAction, initialSavingsActionState);
   const { notify } = useToast();
   useActionFeedback(state, notify);
-  return <form action={action} onSubmit={(event) => { if (!window.confirm(`Xóa vĩnh viễn mục tiêu trống “${goal.name}”?`)) event.preventDefault(); }}><input name="goalId" type="hidden" value={goal.id} /><Button aria-label={`Xóa ${goal.name}`} disabled={pending} size="icon" type="submit" variant="ghost"><Trash2 aria-hidden="true" className="size-4 text-expense" /></Button></form>;
+  return (
+    <ConfirmAction
+      action={action}
+      confirmLabel="Xóa vĩnh viễn"
+      description={`Mục tiêu trống “${goal.name}” sẽ bị xóa khỏi household. Thao tác này không thể hoàn tác.`}
+      pending={pending}
+      title="Xóa mục tiêu này?"
+      trigger={(openDialog) => (
+        <Button aria-label={`Xóa ${goal.name}`} disabled={pending} onClick={openDialog} size="icon" type="button" variant="ghost"><Trash2 aria-hidden="true" className="size-4 text-expense" /></Button>
+      )}
+    >
+      <input name="goalId" type="hidden" value={goal.id} />
+    </ConfirmAction>
+  );
 }
 
 function SavingsGoalForm({ goal, onClose }: { goal?: SavingsGoalView; onClose: () => void }) {

@@ -5,9 +5,10 @@ vi.mock("@/lib/auth/session", () => ({ getCurrentMembership: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() }));
 
 import { getCurrentMembership } from "@/lib/auth/session";
+import { initialBackupActionState } from "@/lib/backup/action-state";
 import { createTransactionBackup } from "@/lib/backup/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { importTransactionsAction, initialBackupActionState } from "./actions";
+import { importTransactionsAction } from "./actions";
 
 const membershipMock = vi.mocked(getCurrentMembership);
 const clientMock = vi.mocked(createServerSupabaseClient);

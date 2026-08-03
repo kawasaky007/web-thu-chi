@@ -5,10 +5,10 @@ vi.mock("@/lib/auth/session", () => ({ getCurrentMembership: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() }));
 
 import { getCurrentMembership } from "@/lib/auth/session";
+import { initialRecurringActionState } from "@/lib/recurring/action-state";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   createRecurringRuleAction,
-  initialRecurringActionState,
   materializeRecurringTransactionsAction,
   updateRecurringRuleAction,
 } from "./actions";

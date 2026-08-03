@@ -6,16 +6,7 @@ import { getCurrentMembership } from "@/lib/auth/session";
 import { MAX_BACKUP_BYTES, parseTransactionBackup } from "@/lib/backup/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { TransactionInsert } from "@/types/database";
-
-export type BackupActionState = {
-  status: "idle" | "error" | "success";
-  message?: string;
-  errors?: string[];
-  imported?: number;
-  skipped?: number;
-};
-
-export const initialBackupActionState: BackupActionState = { status: "idle" };
+import type { BackupActionState } from "@/lib/backup/action-state";
 
 export async function importTransactionsAction(
   _previousState: BackupActionState,

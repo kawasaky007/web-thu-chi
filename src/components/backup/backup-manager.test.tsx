@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/app/(app)/backup/actions", () => ({
   importTransactionsAction: vi.fn(),
-  initialBackupActionState: { status: "idle" },
 }));
 
 function renderManager() {

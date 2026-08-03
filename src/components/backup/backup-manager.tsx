@@ -12,15 +12,13 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import {
-  importTransactionsAction,
-  initialBackupActionState,
-} from "@/app/(app)/backup/actions";
+import { importTransactionsAction } from "@/app/(app)/backup/actions";
 import { PageHeader } from "@/components/app/page-header";
 import { AuthFeedback } from "@/components/auth/auth-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
+import { initialBackupActionState } from "@/lib/backup/action-state";
 import type { BackupOverview } from "@/lib/backup/data";
 import {
   createImportPayload,

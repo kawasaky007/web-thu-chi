@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TransactionForm } from "@/components/transactions/transaction-manager";
+import { TransactionForm, TransactionsManager } from "@/components/transactions/transaction-manager";
 import { ToastProvider } from "@/components/ui/toast";
 import { readTransactionDraft, writeTransactionDraft } from "@/lib/pwa/transaction-draft";
 
@@ -13,7 +13,6 @@ vi.mock("@/app/(app)/transactions/actions", () => ({
   createTransactionAction: vi.fn(),
   deleteTransactionAction: vi.fn(),
   updateTransactionAction: vi.fn(),
-  initialTransactionActionState: { status: "idle" },
 }));
 
 const categories = [
@@ -22,11 +21,11 @@ const categories = [
 ];
 const members = [{ id: "user-1", name: "An", email: "an@example.com" }];
 
-function renderForm(onClose = vi.fn()) {
+function renderForm(onClose = vi.fn(), categoryOptions = categories) {
   render(
     <ToastProvider>
       <TransactionForm
-        categories={categories}
+        categories={categoryOptions}
         currentUserId="user-1"
         members={members}
         onClose={onClose}
@@ -55,8 +54,8 @@ describe("TransactionForm offline draft", () => {
     renderForm();
 
     expect(await screen.findByText("Đã khôi phục bản nháp")).toBeInTheDocument();
-    expect(screen.getByLabelText("Số tiền hoặc biểu thức")).toHaveValue("150000");
-    expect(screen.getByLabelText("Danh mục")).toHaveValue("food");
+    expect(screen.getByLabelText("Số tiền hoặc biểu thức")).toHaveValue("150.000");
+    expect(screen.getByRole("button", { name: "Đã chọn danh mục Ăn uống" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Ghi chú")).toHaveValue("Đi chợ");
   });
 
@@ -65,16 +64,64 @@ describe("TransactionForm offline draft", () => {
     const onClose = renderForm();
 
     fireEvent.change(screen.getByLabelText("Số tiền hoặc biểu thức"), { target: { value: "99000" } });
-    fireEvent.change(screen.getByLabelText("Danh mục"), { target: { value: "food" } });
+    fireEvent.click(screen.getByRole("button", { name: "Chọn danh mục Ăn uống" }));
     fireEvent.change(screen.getByLabelText("Ghi chú"), { target: { value: "Bữa trưa" } });
     fireEvent.click(await screen.findByRole("button", { name: "Lưu bản nháp" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(readTransactionDraft(window.localStorage, "user-1")).toMatchObject({
-      amountExpression: "99000",
+      amountExpression: "99.000",
       categoryId: "food",
       note: "Bữa trưa",
     });
+  });
+
+  it("định dạng số tiền theo nhóm ba chữ số khi nhập", () => {
+    renderForm();
+
+    const amountInput = screen.getByLabelText("Số tiền hoặc biểu thức");
+    fireEvent.change(amountInput, { target: { value: "125000" } });
+
+    expect(amountInput).toHaveValue("125.000");
+  });
+
+  it("đặt danh mục sau ghi chú và giữ footer thao tác ở cuối form", () => {
+    renderForm();
+
+    const note = screen.getByLabelText("Ghi chú");
+    const categoryLegend = screen.getByText("Chọn danh mục chi tiêu");
+    expect(note.compareDocumentPosition(categoryLegend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const saveButton = screen.getByRole("button", { name: "Lưu giao dịch" });
+    expect(saveButton.parentElement).toHaveClass("sticky", "bottom-0");
+  });
+
+  it("chọn danh mục bằng lưới thay vì dropdown native", () => {
+    renderForm();
+
+    expect(screen.queryByRole("combobox", { name: "Danh mục" })).not.toBeInTheDocument();
+    const categoryButton = screen.getByRole("button", { name: "Chọn danh mục Ăn uống" });
+    fireEvent.click(categoryButton);
+
+    expect(screen.getByRole("button", { name: "Đã chọn danh mục Ăn uống" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("hiện 9 danh mục trước và cho phép xem thêm giống app cũ", () => {
+    const manyCategories = Array.from({ length: 10 }, (_, index) => ({
+      id: `expense-${index + 1}`,
+      name: `Danh mục ${index + 1}`,
+      type: "expense" as const,
+      color: "#087a5b",
+      icon: "food",
+      sortOrder: index + 1,
+    }));
+    renderForm(vi.fn(), manyCategories);
+
+    expect(screen.queryByRole("button", { name: "Chọn danh mục Danh mục 10" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Xem thêm 1 danh mục" }));
+
+    expect(screen.getByRole("button", { name: "Chọn danh mục Danh mục 10" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Thu gọn" })).toBeInTheDocument();
   });
 
   it("ghi nháp ngay khi đóng form trước thời gian autosave", () => {
@@ -85,7 +132,54 @@ describe("TransactionForm offline draft", () => {
 
     expect(onClose).toHaveBeenCalledOnce();
     expect(readTransactionDraft(window.localStorage, "user-1")).toMatchObject({
-      amountExpression: "45000",
+      amountExpression: "45.000",
     });
+  });
+
+  it("mở popup xác nhận khi bấm xóa giao dịch", async () => {
+    render(
+      <ToastProvider>
+        <TransactionsManager
+          categories={categories}
+          currentMonth="2026-08"
+          currentUserId="user-1"
+          hasMore={false}
+          members={members}
+          nextCursor={null}
+          search=""
+          summary={{ count: 1, expense: 69999, income: 0 }}
+          transactions={[{
+            id: "transaction-1",
+            householdId: "household-1",
+            userId: "user-1",
+            categoryId: "food",
+            type: "expense",
+            amount: 69999,
+            title: "Ăn uống",
+            note: null,
+            transactionDate: "2026-08-03T00:00:00",
+            createdAt: "2026-08-03T00:00:00",
+            categoryName: "Ăn uống",
+            categoryColor: "#087a5b",
+            categoryIcon: "food",
+            memberName: "Bạn",
+            memberEmail: "an@example.com",
+            canDelete: true,
+          }]}
+          view="month"
+        />
+      </ToastProvider>,
+    );
+
+    const deleteButton = screen.getByRole("button", { name: "Xóa giao dịch Ăn uống" });
+    expect(deleteButton).toHaveAttribute("type", "button");
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByRole("alertdialog", { name: "Xóa giao dịch này?" })).toBeInTheDocument();
+    expect(screen.getByText(/69\.999.*Ăn uống.*không thể hoàn tác/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Hủy" })).toHaveFocus());
+
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });

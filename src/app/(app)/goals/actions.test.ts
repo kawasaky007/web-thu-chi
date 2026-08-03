@@ -6,9 +6,9 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() })
 
 import { getCurrentMembership } from "@/lib/auth/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { initialSavingsActionState } from "@/lib/goals/action-state";
 import {
   createSavingsGoalAction,
-  initialSavingsActionState,
   recordSavingsGoalEntryAction,
   updateSavingsGoalAction,
 } from "./actions";

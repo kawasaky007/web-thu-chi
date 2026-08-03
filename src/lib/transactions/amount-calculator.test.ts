@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateAmountExpression } from "./amount-calculator";
+import { evaluateAmountExpression, formatAmountExpressionInput, formatAmountValue } from "./amount-calculator";
 
 describe("amount calculator", () => {
+  it.each([
+    ["125000", "125.000"],
+    ["125000 + 25000", "125.000 + 25.000"],
+    ["3,5 + 1,5", "3,5 + 1,5"],
+    ["1.250.000", "1.250.000"],
+  ])("định dạng số tiền nhập %s thành %s", (input, expected) => {
+    expect(formatAmountExpressionInput(input)).toBe(expected);
+  });
+
+  it("định dạng kết quả đã tính theo đơn vị Việt Nam", () => {
+    expect(formatAmountValue(150000)).toBe("150.000");
+  });
+
   it.each([
     ["500000", 500000],
     ["30.000", 30000],

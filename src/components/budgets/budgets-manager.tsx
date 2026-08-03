@@ -1,6 +1,32 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,7 +46,6 @@ import {
 import {
   cloneBudgetAction,
   deleteBudgetAction,
-  initialBudgetActionState,
   reorderBudgetsAction,
   upsertBudgetAction,
 } from "@/app/(app)/budgets/actions";
@@ -28,19 +53,77 @@ import { AuthFeedback } from "@/components/auth/auth-feedback";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
+import { initialBudgetActionState, type BudgetActionState } from "@/lib/budgets/action-state";
 import { formatVietnameseMonth, shiftMonth, type BudgetPageData, type BudgetView } from "@/lib/budgets/data";
 import { CATEGORY_ICONS, CATEGORY_ICON_FALLBACK } from "@/lib/categories/icons";
 
 export function BudgetsManager({ data }: { data: BudgetPageData }) {
+  const router = useRouter();
+  const { notify } = useToast();
   const [editor, setEditor] = useState<BudgetView | "new" | null>(null);
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [preferredOrderIds, setPreferredOrderIds] = useState(() => configuredBudgets(data.budgets).map((budget) => budget.id));
+  const reorderFormRef = useRef<HTMLFormElement>(null);
+  const orderedIdsInputRef = useRef<HTMLInputElement>(null);
+  const rollbackOrderRef = useRef<string[] | null>(null);
+  const reorderWithRollback = useCallback(async (previousState: BudgetActionState, formData: FormData) => {
+    const result = await reorderBudgetsAction(previousState, formData);
+    if (result.status === "error" && rollbackOrderRef.current) {
+      setPreferredOrderIds(rollbackOrderRef.current);
+      rollbackOrderRef.current = null;
+    }
+    return result;
+  }, []);
+  const [reorderState, reorderAction, reorderPending] = useActionState(reorderWithRollback, initialBudgetActionState);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const budgetedCategories = useMemo(() => new Set(data.budgets.filter((budget) => budget.id).map((budget) => budget.categoryId)), [data.budgets]);
   const availableCategories = data.categories.filter((category) => !budgetedCategories.has(category.id));
+  const unconfiguredBudgets = data.budgets.filter((budget) => !budget.id);
+  const orderedBudgets = orderConfiguredBudgets(configuredBudgets(data.budgets), preferredOrderIds);
+
+  useEffect(() => {
+    if (reorderState.status === "success") {
+      rollbackOrderRef.current = null;
+      notify(reorderState.message ?? "Đã cập nhật thứ tự ngân sách.");
+      router.refresh();
+    } else if (reorderState.status === "error") {
+      notify(reorderState.message ?? "Không thể đổi thứ tự ngân sách.", "error");
+    }
+  }, [notify, reorderState, router]);
+
+  const commitOrder = (nextBudgets: ConfiguredBudget[]) => {
+    if (reorderPending || sameBudgetOrder(orderedBudgets, nextBudgets)) return;
+    rollbackOrderRef.current = orderedBudgets.map((budget) => budget.id);
+    setPreferredOrderIds(nextBudgets.map((budget) => budget.id));
+    if (orderedIdsInputRef.current) {
+      orderedIdsInputRef.current.value = JSON.stringify(nextBudgets.map((budget) => budget.id));
+    }
+    reorderFormRef.current?.requestSubmit();
+  };
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedBudgets.findIndex((budget) => budget.id === active.id);
+    const newIndex = orderedBudgets.findIndex((budget) => budget.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    commitOrder(arrayMove(orderedBudgets, oldIndex, newIndex));
+  };
+
+  const moveBudget = (budgetId: string, direction: "up" | "down") => {
+    const currentIndex = orderedBudgets.findIndex((budget) => budget.id === budgetId);
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= orderedBudgets.length) return;
+    commitOrder(arrayMove(orderedBudgets, currentIndex, nextIndex));
+  };
 
   return (
     <>
@@ -61,7 +144,73 @@ export function BudgetsManager({ data }: { data: BudgetPageData }) {
             <span className="rounded-full bg-mist px-3 py-1.5 text-xs font-bold text-forest">{data.budgets.filter((budget) => budget.id).length}/{data.categories.length} danh mục</span>
           </CardHeader>
           <CardContent>
-            {data.budgets.length === 0 ? <EmptyState action={<Button onClick={() => setEditor("new")}>Thêm ngân sách đầu tiên</Button>} description="Tạo danh mục chi tiêu trước khi đặt giới hạn." title="Chưa có danh mục chi tiêu" /> : <div className="space-y-3">{data.budgets.map((budget, index) => <BudgetRow budget={budget} canMoveUp={hasBudgetAbove(data.budgets, index)} canMoveDown={hasBudgetBelow(data.budgets, index)} key={budget.categoryId} orderedIds={data.budgets.filter((item) => item.id).map((item) => item.id!)} onEdit={() => setEditor(budget)} />)}</div>}
+            {data.budgets.length === 0 ? (
+              <EmptyState action={<Button onClick={() => setEditor("new")}>Thêm ngân sách đầu tiên</Button>} description="Tạo danh mục chi tiêu trước khi đặt giới hạn." title="Chưa có danh mục chi tiêu" />
+            ) : (
+              <>
+                <form action={reorderAction} className="sr-only" ref={reorderFormRef}>
+                  <input
+                    defaultValue={JSON.stringify(orderedBudgets.map((budget) => budget.id))}
+                    name="orderedIds"
+                    readOnly
+                    ref={orderedIdsInputRef}
+                    type="hidden"
+                  />
+                </form>
+
+                {orderedBudgets.length > 0 ? (
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-mist/55 px-3 py-2.5 text-xs font-bold text-forest/58">
+                      <span className="flex items-center gap-2">
+                        <GripVertical aria-hidden="true" className="size-4 text-indigo" />
+                        Kéo tay nắm để thay đổi thứ tự
+                      </span>
+                      {reorderPending ? <span className="shrink-0 text-indigo">Đang lưu...</span> : null}
+                    </div>
+                    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
+                      <SortableContext items={orderedBudgets.map((budget) => budget.id)} strategy={verticalListSortingStrategy}>
+                        <div aria-label="Ngân sách đã thiết lập" className="space-y-3" role="list">
+                          {orderedBudgets.map((budget, index) => (
+                            <SortableBudgetRow
+                              budget={budget}
+                              canMoveDown={index < orderedBudgets.length - 1}
+                              canMoveUp={index > 0}
+                              key={budget.id}
+                              onEdit={() => setEditor(budget)}
+                              onMove={moveBudget}
+                              pending={reorderPending}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                    {reorderState.fieldErrors?.orderedIds ? <p className="mt-2 text-xs font-semibold text-expense">{reorderState.fieldErrors.orderedIds}</p> : null}
+                  </div>
+                ) : null}
+
+                {unconfiguredBudgets.length > 0 ? (
+                  <div className={orderedBudgets.length > 0 ? "mt-6 border-t border-forest/10 pt-5" : ""}>
+                    <div className="mb-3 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo">Chưa thiết lập</p>
+                        <p className="mt-1 text-sm font-bold text-ink/48">Đặt giới hạn trước khi sắp xếp</p>
+                      </div>
+                      <span className="text-xs font-bold text-forest/42">{unconfiguredBudgets.length} danh mục</span>
+                    </div>
+                    <div aria-label="Danh mục chưa thiết lập ngân sách" className="space-y-3" role="list">
+                      {unconfiguredBudgets.map((budget) => (
+                        <BudgetRow
+                          budget={budget}
+                          dragHandle={<span aria-label="Đặt ngân sách để có thể sắp xếp" className="grid size-10 shrink-0 place-items-center rounded-xl text-forest/18" role="img"><GripVertical aria-hidden="true" className="size-5" /></span>}
+                          key={budget.categoryId}
+                          onEdit={() => setEditor(budget)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
             {availableCategories.length > 0 && data.budgets.length > 0 ? <Button className="mt-4 w-full" onClick={() => setEditor("new")} variant="secondary"><Plus aria-hidden="true" className="size-4" /> Thêm danh mục vào ngân sách</Button> : null}
           </CardContent>
         </Card>
@@ -79,24 +228,125 @@ function BudgetSummaryCard({ data }: { data: BudgetPageData }) {
   return <Card className="mt-4 overflow-hidden border-0 bg-ink text-paper"><CardContent className="grid gap-6 p-6 sm:grid-cols-[1fr_auto] sm:items-end sm:p-8"><div><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-yellow">Tổng quan tháng</p><p className="mt-3 text-4xl font-extrabold tracking-[-0.055em] sm:text-5xl">{formatMoney(data.summary.totalBudget)}</p><p className="mt-2 text-sm font-medium text-paper/52">tổng giới hạn · đã chi {formatMoney(data.summary.totalExpense)}</p><div className="mt-5 h-2.5 overflow-hidden rounded-full bg-paper/12"><div className={`h-full rounded-full ${warning ? "bg-rose" : "bg-mint"}`} style={{ width: `${ratio * 100}%` }} /></div></div><div className={`rounded-2xl px-4 py-3 text-sm font-bold ${data.summary.remaining < 0 ? "bg-expense/30 text-rose" : "bg-paper/8 text-mint"}`}>{data.summary.remaining < 0 ? `Vượt ${formatMoney(Math.abs(data.summary.remaining))}` : `Còn ${formatMoney(data.summary.remaining)}`}</div></CardContent></Card>;
 }
 
-function BudgetRow({ budget, orderedIds, canMoveUp, canMoveDown, onEdit }: { budget: BudgetView; orderedIds: string[]; canMoveUp: boolean; canMoveDown: boolean; onEdit: () => void }) {
+type ConfiguredBudget = BudgetView & { id: string };
+
+function SortableBudgetRow({
+  budget,
+  canMoveUp,
+  canMoveDown,
+  onEdit,
+  onMove,
+  pending,
+}: {
+  budget: ConfiguredBudget;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onEdit: () => void;
+  onMove: (budgetId: string, direction: "up" | "down") => void;
+  pending: boolean;
+}) {
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: budget.id, disabled: pending });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <BudgetRow
+      budget={budget}
+      canMoveDown={canMoveDown}
+      canMoveUp={canMoveUp}
+      containerRef={setNodeRef}
+      dragHandle={(
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label={`Kéo để sắp xếp ngân sách ${budget.categoryName}`}
+          className="grid size-10 shrink-0 touch-none place-items-center rounded-xl text-forest/38 transition hover:bg-mist hover:text-indigo active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-35 sm:cursor-grab"
+          disabled={pending}
+          ref={setActivatorNodeRef}
+          type="button"
+        >
+          <GripVertical aria-hidden="true" className="size-5" />
+        </button>
+      )}
+      isDragging={isDragging}
+      onEdit={onEdit}
+      onMove={(direction) => onMove(budget.id, direction)}
+      pending={pending}
+      style={style}
+    />
+  );
+}
+
+function BudgetRow({
+  budget,
+  canMoveUp = false,
+  canMoveDown = false,
+  containerRef,
+  dragHandle,
+  isDragging = false,
+  onEdit,
+  onMove,
+  pending = false,
+  style,
+}: {
+  budget: BudgetView;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  containerRef?: (node: HTMLDivElement | null) => void;
+  dragHandle: ReactNode;
+  isDragging?: boolean;
+  onEdit: () => void;
+  onMove?: (direction: "up" | "down") => void;
+  pending?: boolean;
+  style?: CSSProperties;
+}) {
   const Icon = CATEGORY_ICONS[budget.categoryIcon] ?? CATEGORY_ICON_FALLBACK;
   const hasBudget = Boolean(budget.id);
   const ratio = hasBudget && budget.amount > 0 ? budget.spent / budget.amount : 0;
   const over = hasBudget && budget.spent > budget.amount;
   const near = hasBudget && !over && ratio >= 0.8;
-  return <div className="rounded-2xl border border-forest/8 bg-white/58 p-3 transition hover:border-forest/18 hover:bg-white"><div className="flex items-center gap-3"><span aria-hidden="true" className="shrink-0 text-forest/35"><GripVertical className="size-5" /></span><span className="grid size-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: `${budget.categoryColor}20`, color: budget.categoryColor }}><Icon aria-hidden="true" className="size-5" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-extrabold">{budget.categoryName}</p><p className={`mt-0.5 truncate text-xs font-semibold ${over ? "text-expense" : near ? "text-yellow-700" : "text-ink/44"}`}>{statusText(budget, ratio)}</p></div><span className={`shrink-0 text-sm font-extrabold ${over ? "text-expense" : "text-forest"}`}>{hasBudget ? formatMoney(budget.amount) : "Chưa đặt"}</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div className={`h-full rounded-full ${over ? "bg-expense" : near ? "bg-yellow" : "bg-forest"}`} style={{ width: `${hasBudget ? Math.min(100, Math.max(0, ratio * 100)) : 0}%` }} /></div><div className="mt-3 flex items-center justify-between gap-2 text-xs font-bold"><span>{formatMoney(budget.spent)} đã chi</span><span className={over ? "text-expense" : "text-ink/42"}>{hasBudget ? (over ? `Vượt ${formatMoney(budget.spent - budget.amount)}` : `Còn ${formatMoney(budget.amount - budget.spent)}`) : "Chưa đặt ngân sách"}</span></div><div className="mt-2 flex items-center justify-end gap-1"><ReorderButton budgetId={budget.id} direction="up" disabled={!hasBudget || !canMoveUp} orderedIds={orderedIds} /><ReorderButton budgetId={budget.id} direction="down" disabled={!hasBudget || !canMoveDown} orderedIds={orderedIds} /><Button aria-label={`${hasBudget ? "Sửa" : "Thêm"} ngân sách ${budget.categoryName}`} onClick={onEdit} size="icon" variant="ghost">{hasBudget ? <Pencil aria-hidden="true" className="size-4" /> : <Plus aria-hidden="true" className="size-4" />}</Button>{hasBudget ? <DeleteBudgetButton budget={budget} /> : null}</div></div>;
-}
-
-function ReorderButton({ budgetId, direction, disabled, orderedIds }: { budgetId: string | null; direction: "up" | "down"; disabled: boolean; orderedIds: string[] }) {
-  const router = useRouter();
-  const { notify } = useToast();
-  const [state, formAction, pending] = useActionState(reorderBudgetsAction, initialBudgetActionState);
-  useEffect(() => { if (state.status === "success") router.refresh(); else if (state.status === "error") notify(state.message ?? "Không thể đổi thứ tự.", "error"); }, [notify, router, state.message, state.status]);
-  const nextIds = [...orderedIds];
-  const index = budgetId ? nextIds.indexOf(budgetId) : -1;
-  if (index >= 0) { const target = direction === "up" ? index - 1 : index + 1; if (target >= 0 && target < nextIds.length) [nextIds[index], nextIds[target]] = [nextIds[target], nextIds[index]]; }
-  return <form action={formAction}><input name="orderedIds" readOnly type="hidden" value={JSON.stringify(nextIds)} /><Button aria-label={direction === "up" ? "Đưa ngân sách lên" : "Đưa ngân sách xuống"} disabled={disabled || pending} size="icon" variant="ghost">{direction === "up" ? <ArrowUp aria-hidden="true" className="size-4" /> : <ArrowDown aria-hidden="true" className="size-4" />}</Button></form>;
+  return (
+    <div
+      className={`rounded-2xl border bg-white/58 p-3 transition-[border-color,background-color,box-shadow,opacity] ${isDragging ? "relative z-10 border-indigo/35 bg-paper-raised opacity-90 shadow-[0_22px_50px_rgba(31,61,43,0.18)]" : "border-forest/8 hover:border-forest/18 hover:bg-white"}`}
+      ref={containerRef}
+      role="listitem"
+      style={style}
+    >
+      <div className="flex items-center gap-2 sm:gap-3">
+        {dragHandle}
+        <span className="grid size-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: `${budget.categoryColor}20`, color: budget.categoryColor }}>
+          <Icon aria-hidden="true" className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-extrabold">{budget.categoryName}</p>
+          <p className={`mt-0.5 truncate text-xs font-semibold ${over ? "text-expense" : near ? "text-yellow-700" : "text-ink/44"}`}>{statusText(budget, ratio)}</p>
+        </div>
+        <span className={`shrink-0 text-sm font-extrabold ${over ? "text-expense" : "text-forest"}`}>{hasBudget ? formatMoney(budget.amount) : "Chưa đặt"}</span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div className={`h-full rounded-full ${over ? "bg-expense" : near ? "bg-yellow" : "bg-forest"}`} style={{ width: `${hasBudget ? Math.min(100, Math.max(0, ratio * 100)) : 0}%` }} /></div>
+      <div className="mt-3 flex items-center justify-between gap-2 text-xs font-bold"><span>{formatMoney(budget.spent)} đã chi</span><span className={over ? "text-expense" : "text-ink/42"}>{hasBudget ? (over ? `Vượt ${formatMoney(budget.spent - budget.amount)}` : `Còn ${formatMoney(budget.amount - budget.spent)}`) : "Chưa đặt ngân sách"}</span></div>
+      <div className="mt-2 flex items-center justify-end gap-1">
+        {hasBudget && onMove ? (
+          <>
+            <Button aria-label={`Đưa ngân sách ${budget.categoryName} lên`} disabled={!canMoveUp || pending} onClick={() => onMove("up")} size="icon" type="button" variant="ghost"><ArrowUp aria-hidden="true" className="size-4" /></Button>
+            <Button aria-label={`Đưa ngân sách ${budget.categoryName} xuống`} disabled={!canMoveDown || pending} onClick={() => onMove("down")} size="icon" type="button" variant="ghost"><ArrowDown aria-hidden="true" className="size-4" /></Button>
+          </>
+        ) : null}
+        <Button aria-label={`${hasBudget ? "Sửa" : "Thêm"} ngân sách ${budget.categoryName}`} onClick={onEdit} size="icon" variant="ghost">{hasBudget ? <Pencil aria-hidden="true" className="size-4" /> : <Plus aria-hidden="true" className="size-4" />}</Button>
+        {hasBudget ? <DeleteBudgetButton budget={budget} /> : null}
+      </div>
+    </div>
+  );
 }
 
 function DeleteBudgetButton({ budget }: { budget: BudgetView }) {
@@ -104,7 +354,22 @@ function DeleteBudgetButton({ budget }: { budget: BudgetView }) {
   const { notify } = useToast();
   const [state, formAction, pending] = useActionState(deleteBudgetAction, initialBudgetActionState);
   useEffect(() => { if (state.status === "success") { notify(state.message ?? "Đã xóa ngân sách."); router.refresh(); } else if (state.status === "error") notify(state.message ?? "Không thể xóa ngân sách.", "error"); }, [notify, router, state.message, state.status]);
-  return <form action={formAction} onSubmit={(event) => { if (!window.confirm(`Xóa ngân sách ${budget.categoryName} trong tháng này?`)) event.preventDefault(); }}><input name="budgetId" readOnly type="hidden" value={budget.id ?? ""} /><Button aria-label={`Xóa ngân sách ${budget.categoryName}`} disabled={pending} size="icon" variant="ghost"><Trash2 aria-hidden="true" className="size-4 text-expense" /></Button></form>;
+  return (
+    <ConfirmAction
+      action={formAction}
+      confirmLabel="Xóa ngân sách"
+      description={`Giới hạn của danh mục ${budget.categoryName} trong tháng này sẽ bị xóa. Các giao dịch đã ghi vẫn được giữ nguyên.`}
+      pending={pending}
+      title="Xóa ngân sách này?"
+      trigger={(openDialog) => (
+        <Button aria-label={`Xóa ngân sách ${budget.categoryName}`} disabled={pending} onClick={openDialog} size="icon" type="button" variant="ghost">
+          <Trash2 aria-hidden="true" className="size-4 text-expense" />
+        </Button>
+      )}
+    >
+      <input name="budgetId" readOnly type="hidden" value={budget.id ?? ""} />
+    </ConfirmAction>
+  );
 }
 
 function BudgetForm({ budget, categories, month, onClose }: { budget?: BudgetView; categories: BudgetPageData["categories"]; month: string; onClose: () => void }) {
@@ -135,12 +400,23 @@ function statusText(budget: BudgetView, ratio: number) {
   return `Bình thường (${Math.round(ratio * 100)}%).`;
 }
 
-function hasBudgetAbove(items: BudgetView[], index: number) {
-  return Boolean(items[index]?.id) && items.slice(0, index).some((item) => item.id);
+function configuredBudgets(items: BudgetView[]): ConfiguredBudget[] {
+  return items.filter((budget): budget is ConfiguredBudget => typeof budget.id === "string");
 }
 
-function hasBudgetBelow(items: BudgetView[], index: number) {
-  return Boolean(items[index]?.id) && items.slice(index + 1).some((item) => item.id);
+function orderConfiguredBudgets(items: ConfiguredBudget[], preferredOrderIds: string[]) {
+  const byId = new Map(items.map((budget) => [budget.id, budget]));
+  const preferred = preferredOrderIds.flatMap((id) => {
+    const budget = byId.get(id);
+    if (!budget) return [];
+    byId.delete(id);
+    return [budget];
+  });
+  return [...preferred, ...byId.values()];
+}
+
+function sameBudgetOrder(current: ConfiguredBudget[], next: ConfiguredBudget[]) {
+  return current.length === next.length && current.every((budget, index) => budget.id === next[index]?.id);
 }
 
 function formatMoney(value: number) {
