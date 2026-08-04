@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
 import { Sheet } from "@/components/ui/sheet";
@@ -48,7 +49,6 @@ import {
 } from "@/lib/pwa/transaction-draft";
 import {
   formatVietnameseDate,
-  formatVietnameseMonth,
   shiftMonth,
   type CategoryOption,
   type MemberOption,
@@ -208,15 +208,10 @@ function MonthControls({ month, search }: { month: string; search: string }) {
       <Link aria-label="Tháng trước" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={`/transactions?month=${shiftMonth(month, -1)}${query}`}>
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Link>
-      <form action="/transactions" className="flex items-center gap-2" method="get">
-        {search ? <input name="q" type="hidden" value={search} /> : null}
-        <input aria-label="Chọn tháng" className="min-h-11 rounded-xl border border-forest/10 bg-paper px-3 text-center text-sm font-extrabold text-forest" defaultValue={month} name="month" type="month" />
-        <Button size="sm" type="submit" variant="secondary">Áp dụng</Button>
-      </form>
+      <MonthPicker hrefForMonth={(value) => `/transactions?month=${value}${query}`} month={month} />
       <Link aria-label="Tháng sau" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={`/transactions?month=${shiftMonth(month, 1)}${query}`}>
         <ChevronRight aria-hidden="true" className="size-5" />
       </Link>
-      <span className="sr-only">{formatVietnameseMonth(month)}</span>
     </div>
   );
 }
