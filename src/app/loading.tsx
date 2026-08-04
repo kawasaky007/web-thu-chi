@@ -1,5 +1,5 @@
 import { AppLoading } from "@/components/ui/app-loading";
 
 export default function Loading() {
-  return <AppLoading fullScreen={false} label="Đang tải dữ liệu gia đình" />;
+  return <AppLoading />;
 }
