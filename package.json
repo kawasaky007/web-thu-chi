@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "generate:assistant-data": "node scripts/generate-assistant-training-data.mjs",
     "test:e2e": "pnpm build && playwright test",
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },

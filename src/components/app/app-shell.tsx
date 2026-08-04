@@ -2,8 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Bell, PiggyBank, Plus, Sparkles } from "lucide-react";
+import { Bell, MessageCircle, PiggyBank, Plus, Sparkles } from "lucide-react";
 
+import { AssistantChat } from "@/components/assistant/assistant-chat";
 import { Brand } from "@/components/brand";
 import { DesktopNavigation, MobileNavigation } from "@/components/app/navigation";
 import { TransactionForm } from "@/components/transactions/transaction-manager";
@@ -36,6 +37,7 @@ export function AppShell({
   todayLabel: string;
 }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   return (
     <div className="min-h-dvh">
@@ -72,6 +74,9 @@ export function AppShell({
               <p className="mt-0.5 text-sm font-bold capitalize text-ink">{todayLabel}</p>
             </div>
             <div className="flex items-center gap-2">
+              <Button aria-label="Mở trợ lý Thu Chi" className="hidden sm:inline-flex" onClick={() => setAssistantOpen(true)} size="icon" variant="secondary">
+                <MessageCircle aria-hidden="true" className="size-5" />
+              </Button>
               <Link
                 aria-label="Mục tiêu và quỹ tiết kiệm"
                 className="inline-flex size-11 items-center justify-center rounded-2xl border border-forest/14 bg-paper-raised/82 text-forest transition hover:bg-mist/70"
@@ -110,8 +115,23 @@ export function AppShell({
       >
         <Plus aria-hidden="true" className="size-6" />
       </Button>
+      <Button
+        aria-label="Mở trợ lý Thu Chi"
+        className="fixed bottom-[calc(6.6rem+env(safe-area-inset-bottom))] left-4 z-30 size-14 rounded-full bg-yellow p-0 text-ink shadow-[0_14px_32px_rgba(31,61,43,0.22)] hover:bg-yellow/86 sm:hidden"
+        onClick={() => setAssistantOpen(true)}
+      >
+        <MessageCircle aria-hidden="true" className="size-6" />
+      </Button>
       <MobileNavigation />
       <RecurringReminderNotifier dueCount={recurringDueCount} userId={currentUserId} />
+      {assistantOpen ? (
+        <AssistantChat
+          categories={transactionCategories}
+          currentUserId={currentUserId}
+          onClose={() => setAssistantOpen(false)}
+          profileName={profileName}
+        />
+      ) : null}
       {quickAddOpen ? (
         <TransactionForm
           categories={transactionCategories}

@@ -81,6 +81,15 @@ body::before {
   color: var(--ink);
 }
 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 :focus-visible {
   outline: 3px solid var(--indigo);
   outline-offset: 3px;

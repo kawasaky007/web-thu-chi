@@ -24,21 +24,25 @@ export async function createTransactionAction(
   const references = await validateReferences(context, validation.data.categoryId, validation.data.userId);
   if (!references.success) return references.state;
 
-  const { error } = await context.supabase.from("transactions").insert({
-    household_id: context.householdId,
-    category_id: references.category.id,
-    user_id: references.member.id,
-    created_by: context.userId,
-    type: references.category.type,
-    amount: validation.data.amount,
-    title: references.category.name,
-    note: validation.data.note,
-    transaction_date: toTimestamp(validation.data.transactionDate),
-  });
+  const { data, error } = await context.supabase
+    .from("transactions")
+    .insert({
+      household_id: context.householdId,
+      category_id: references.category.id,
+      user_id: references.member.id,
+      created_by: context.userId,
+      type: references.category.type,
+      amount: validation.data.amount,
+      title: references.category.name,
+      note: validation.data.note,
+      transaction_date: toTimestamp(validation.data.transactionDate),
+    })
+    .select("id")
+    .single();
 
   if (error) return mapTransactionError(error);
   revalidateTransactions();
-  return { status: "success", message: "Đã lưu giao dịch." };
+  return { status: "success", message: "Đã lưu giao dịch.", transactionId: data.id };
 }
 
 export async function updateTransactionAction(

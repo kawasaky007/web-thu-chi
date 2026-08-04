@@ -42,7 +42,7 @@ describe("transaction actions", () => {
   it("tạo giao dịch bằng category và member cùng household", async () => {
     const categoryQuery = createChain({ data: { id: "cat-1", household_id: "household-1", name: "Ăn uống", type: "expense" }, error: null });
     const memberQuery = createChain({ data: { id: "user-1", household_id: "household-1" }, error: null });
-    const insertQuery = { insert: vi.fn().mockResolvedValue({ error: null }) };
+    const insertQuery = createChain({ data: { id: "tx-new" }, error: null });
     const client = {
       from: vi.fn()
         .mockReturnValueOnce(categoryQuery)
@@ -63,6 +63,7 @@ describe("transaction actions", () => {
     );
 
     expect(result.status).toBe("success");
+    expect(result.transactionId).toBe("tx-new");
     expect(insertQuery.insert).toHaveBeenCalledWith({
       household_id: "household-1",
       category_id: "cat-1",
@@ -124,12 +125,15 @@ describe("transaction actions", () => {
 function createChain(result: { data: unknown; error: unknown }) {
   const chain = {
     eq: vi.fn(),
+    insert: vi.fn(),
     select: vi.fn(),
+    single: vi.fn().mockResolvedValue(result),
     update: vi.fn(),
     delete: vi.fn(),
     maybeSingle: vi.fn().mockResolvedValue(result),
   };
   chain.eq.mockReturnValue(chain);
+  chain.insert.mockReturnValue(chain);
   chain.select.mockReturnValue(chain);
   chain.update.mockReturnValue(chain);
   chain.delete.mockReturnValue(chain);
