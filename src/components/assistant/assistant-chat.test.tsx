@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AssistantChat } from "./assistant-chat";
 import { createTransactionAction } from "@/app/(app)/transactions/actions";
-import { getAssistantMonthlySummaryAction } from "@/app/(app)/assistant/actions";
+import {
+  getAssistantMonthlySummaryAction,
+  getAssistantTodayExpensesAction,
+} from "@/app/(app)/assistant/actions";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -19,10 +22,12 @@ vi.mock("@/app/(app)/transactions/actions", () => ({
 
 vi.mock("@/app/(app)/assistant/actions", () => ({
   getAssistantMonthlySummaryAction: vi.fn(),
+  getAssistantTodayExpensesAction: vi.fn(),
 }));
 
 const createTransaction = vi.mocked(createTransactionAction);
 const getMonthlySummary = vi.mocked(getAssistantMonthlySummaryAction);
+const getTodayExpenses = vi.mocked(getAssistantTodayExpensesAction);
 const categories = [
   { id: "food", name: "Ăn uống", type: "expense" as const, color: "#C2410C", icon: "food", sortOrder: 1 },
   { id: "coffee", name: "Cà phê", type: "expense" as const, color: "#CA8A04", icon: "coffee", sortOrder: 2 },
@@ -75,5 +80,26 @@ describe("AssistantChat", () => {
 
     expect(await screen.findByText(/thu 10.000.000 đ, chi 2.500.000 đ/)).toBeInTheDocument();
     expect(getMonthlySummary).toHaveBeenCalledOnce();
+  });
+
+  it("liệt kê các khoản đã chi hôm nay", async () => {
+    getTodayExpenses.mockResolvedValue({
+      status: "success",
+      count: 2,
+      total: 68_000,
+      items: [
+        { id: "tx-1", amount: 18_000, title: "Cà phê", note: null },
+        { id: "tx-2", amount: 50_000, title: "Ăn uống", note: null },
+      ],
+    });
+    renderAssistant();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nhắn cho trợ lý Thu Chi" }), {
+      target: { value: "Hôm nay tôi đã chi những gì?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Gửi lệnh" }));
+
+    expect(await screen.findByText(/Cà phê: 18.000 đ; Ăn uống: 50.000 đ/)).toBeInTheDocument();
+    expect(getTodayExpenses).toHaveBeenCalledOnce();
   });
 });

@@ -11,6 +11,7 @@ export type AssistantTransactionCommand = {
 export type AssistantCommand =
   | AssistantTransactionCommand
   | { kind: "monthly_summary" }
+  | { kind: "today_expenses" }
   | { kind: "navigate"; href: string; label: string }
   | { kind: "clarification"; message: string }
   | { kind: "help"; message: string };
@@ -92,6 +93,7 @@ export function parseAssistantCommand(
     return { kind: "help", message: "Bạn hãy nhập một câu, ví dụ: “Mới mua cà phê 18k”." };
   }
 
+  if (isTodayExpenseIntent(normalized)) return { kind: "today_expenses" };
   if (isMonthlySummaryIntent(normalized)) return { kind: "monthly_summary" };
 
   const amount = parseVietnameseAmount(normalized);
@@ -268,6 +270,43 @@ function formatDate(date: { year: number; month: number; day: number }) {
 function isMonthlySummaryIntent(input: string) {
   const asksAmount = ["bao nhieu", "tong chi", "tong thu", "so du", "con lai", "tong quan"].some((keyword) => hasPhrase(input, keyword));
   return asksAmount && ["thang nay", "thang hien tai", "thang"].some((keyword) => hasPhrase(input, keyword));
+}
+
+function isTodayExpenseIntent(input: string) {
+  const hasTodayScope = [
+    "hom nay",
+    "ngay hom nay",
+    "trong ngay hom nay",
+    "sang nay",
+    "tu sang den gio",
+    "tu dau ngay den gio",
+    "trong ngay",
+    "bua gio",
+    "den luc nay",
+    "tu luc sang",
+  ].some((keyword) => hasPhrase(input, keyword));
+  if (!hasTodayScope) return false;
+  return [
+    "da chi nhung gi",
+    "chi nhung gi",
+    "da chi gi",
+    "chi gi",
+    "cac khoan chi",
+    "nhung khoan chi",
+    "da tieu nhung gi",
+    "tieu nhung gi",
+    "da tieu gi",
+    "tieu gi",
+    "da mua nhung gi",
+    "mua nhung gi",
+    "da mua gi",
+    "tien di dau",
+    "tien cua toi di dau",
+    "tien cua minh di dau",
+    "liet ke chi tieu",
+    "chi tieu nao",
+    "khoan chi nao",
+  ].some((keyword) => hasPhrase(input, keyword));
 }
 
 function resolveNavigation(input: string): AssistantCommand | null {

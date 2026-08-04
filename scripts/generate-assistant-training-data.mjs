@@ -240,7 +240,44 @@ for (let index = 0; index < helpPhrases.length; index += 1) {
   });
 }
 
-if (cases.length !== 1000) throw new Error(`Expected 1000 cases, received ${cases.length}.`);
+const todayExpenseTimePhrases = [
+  "Hôm nay",
+  "Ngày hôm nay",
+  "Trong ngày hôm nay",
+  "Sáng nay",
+  "Từ sáng đến giờ",
+  "Từ đầu ngày đến giờ",
+  "Trong ngày",
+  "Bữa giờ",
+  "Đến lúc này hôm nay",
+  "Từ lúc sáng đến giờ",
+];
+const todayExpenseQuestions = [
+  "tôi đã chi những gì?",
+  "mình chi những gì?",
+  "tôi đã tiêu gì?",
+  "mình tiêu những gì?",
+  "có những khoản chi nào?",
+  "hãy liệt kê chi tiêu giúp tôi",
+  "tôi đã mua gì?",
+  "mình mua những gì?",
+  "tiền của tôi đi đâu?",
+  "có khoản chi nào được ghi nhận?",
+];
+
+for (let timeIndex = 0; timeIndex < todayExpenseTimePhrases.length; timeIndex += 1) {
+  for (let questionIndex = 0; questionIndex < todayExpenseQuestions.length; questionIndex += 1) {
+    const caseIndex = timeIndex * todayExpenseQuestions.length + questionIndex + 1;
+    cases.push({
+      id: `today-expenses-${String(caseIndex).padStart(3, "0")}`,
+      input: cleanSentence(`${todayExpenseTimePhrases[timeIndex]} ${todayExpenseQuestions[questionIndex]}`),
+      expected: { kind: "today_expenses" },
+      tags: ["query", "today_expenses", "augmented_from_seed"],
+    });
+  }
+}
+
+if (cases.length !== 1100) throw new Error(`Expected 1100 cases, received ${cases.length}.`);
 if (new Set(cases.map((item) => item.id)).size !== cases.length) throw new Error("Training case IDs must be unique.");
 if (new Set(cases.map((item) => item.input.toLocaleLowerCase("vi-VN"))).size !== cases.length) {
   throw new Error("Training inputs must be unique.");

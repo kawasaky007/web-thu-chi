@@ -12,7 +12,10 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { getAssistantMonthlySummaryAction } from "@/app/(app)/assistant/actions";
+import {
+  getAssistantMonthlySummaryAction,
+  getAssistantTodayExpensesAction,
+} from "@/app/(app)/assistant/actions";
 import {
   createTransactionAction,
   deleteTransactionAction,
@@ -110,6 +113,28 @@ export function AssistantChat({
     }
 
     startTransition(async () => {
+      if (command.kind === "today_expenses") {
+        const result = await getAssistantTodayExpensesAction();
+        if (result.status === "error") {
+          addMessage({ role: "assistant", text: result.message });
+          return;
+        }
+        if (result.count === 0) {
+          addMessage({ role: "assistant", text: "Hôm nay bạn chưa có khoản chi nào." });
+          return;
+        }
+        const visibleItems = result.items.slice(0, 6);
+        const itemText = visibleItems.map((item) => `${item.title}: ${formatMoney(item.amount)}`).join("; ");
+        const remainingText = result.items.length > visibleItems.length
+          ? `; và ${result.items.length - visibleItems.length} khoản khác`
+          : "";
+        addMessage({
+          role: "assistant",
+          text: `Hôm nay bạn đã chi ${result.count} khoản, tổng ${formatMoney(result.total)}: ${itemText}${remainingText}.`,
+        });
+        return;
+      }
+
       if (command.kind === "monthly_summary") {
         const result = await getAssistantMonthlySummaryAction();
         if (result.status === "error") {

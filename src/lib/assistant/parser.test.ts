@@ -44,6 +44,9 @@ describe("assistant parser", () => {
 
   it("nhận dạng câu hỏi báo cáo và điều hướng", () => {
     expect(parseAssistantCommand("Tháng này tôi chi bao nhiêu?", categories)).toEqual({ kind: "monthly_summary" });
+    expect(parseAssistantCommand("Hôm nay tôi đã chi những gì?", categories)).toEqual({ kind: "today_expenses" });
+    expect(parseAssistantCommand("Từ sáng đến giờ tiền của tôi đi đâu?", categories)).toEqual({ kind: "today_expenses" });
+    expect(parseAssistantCommand("Trong ngày có những khoản chi nào?", categories)).toEqual({ kind: "today_expenses" });
     expect(parseAssistantCommand("Mở ngân sách", categories)).toEqual({ kind: "navigate", href: "/budgets", label: "Ngân sách" });
   });
 });

@@ -9,7 +9,7 @@ type TrainingCase = {
   id: string;
   input: string;
   expected: {
-    kind: "create_transaction" | "monthly_summary" | "navigate" | "clarification" | "help";
+    kind: "create_transaction" | "monthly_summary" | "today_expenses" | "navigate" | "clarification" | "help";
     type?: "expense" | "income";
     amount?: number;
     categoryIcon?: string;
@@ -47,20 +47,21 @@ const trainingCases = readTrainingCases();
 const fixedNow = new Date("2026-08-04T03:00:00Z");
 
 describe("assistant Vietnamese training corpus", () => {
-  it("có đúng 1.000 case duy nhất và đủ phân bố intent", () => {
-    expect(trainingCases).toHaveLength(1000);
-    expect(new Set(trainingCases.map((item) => item.id)).size).toBe(1000);
-    expect(new Set(trainingCases.map((item) => item.input.toLocaleLowerCase("vi-VN"))).size).toBe(1000);
+  it("có đúng 1.100 case duy nhất và đủ phân bố intent", () => {
+    expect(trainingCases).toHaveLength(1100);
+    expect(new Set(trainingCases.map((item) => item.id)).size).toBe(1100);
+    expect(new Set(trainingCases.map((item) => item.input.toLocaleLowerCase("vi-VN"))).size).toBe(1100);
     expect(countByIntent(trainingCases)).toEqual({
       create_transaction: 700,
       monthly_summary: 100,
+      today_expenses: 100,
       navigate: 100,
       clarification: 75,
       help: 25,
     });
   });
 
-  it("hiểu đúng toàn bộ 1.000 case", () => {
+  it("hiểu đúng toàn bộ 1.100 case", () => {
     const failures = trainingCases.flatMap((trainingCase) => {
       const actual = parseAssistantCommand(trainingCase.input, categories, fixedNow);
       const expected = trainingCase.expected;

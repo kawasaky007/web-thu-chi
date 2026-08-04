@@ -998,3 +998,103 @@
 {"id":"help-023","input":"Có thể nói tự nhiên không?","expected":{"kind":"help"},"tags":["help"]}
 {"id":"help-024","input":"Chỉ tôi cách dùng","expected":{"kind":"help"},"tags":["help"]}
 {"id":"help-025","input":"Tôi muốn thử agent","expected":{"kind":"help"},"tags":["help"]}
+{"id":"today-expenses-001","input":"Hôm nay tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-002","input":"Hôm nay mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-003","input":"Hôm nay tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-004","input":"Hôm nay mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-005","input":"Hôm nay có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-006","input":"Hôm nay hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-007","input":"Hôm nay tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-008","input":"Hôm nay mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-009","input":"Hôm nay tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-010","input":"Hôm nay có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-011","input":"Ngày hôm nay tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-012","input":"Ngày hôm nay mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-013","input":"Ngày hôm nay tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-014","input":"Ngày hôm nay mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-015","input":"Ngày hôm nay có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-016","input":"Ngày hôm nay hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-017","input":"Ngày hôm nay tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-018","input":"Ngày hôm nay mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-019","input":"Ngày hôm nay tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-020","input":"Ngày hôm nay có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-021","input":"Trong ngày hôm nay tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-022","input":"Trong ngày hôm nay mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-023","input":"Trong ngày hôm nay tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-024","input":"Trong ngày hôm nay mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-025","input":"Trong ngày hôm nay có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-026","input":"Trong ngày hôm nay hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-027","input":"Trong ngày hôm nay tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-028","input":"Trong ngày hôm nay mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-029","input":"Trong ngày hôm nay tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-030","input":"Trong ngày hôm nay có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-031","input":"Sáng nay tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-032","input":"Sáng nay mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-033","input":"Sáng nay tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-034","input":"Sáng nay mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-035","input":"Sáng nay có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-036","input":"Sáng nay hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-037","input":"Sáng nay tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-038","input":"Sáng nay mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-039","input":"Sáng nay tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-040","input":"Sáng nay có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-041","input":"Từ sáng đến giờ tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-042","input":"Từ sáng đến giờ mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-043","input":"Từ sáng đến giờ tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-044","input":"Từ sáng đến giờ mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-045","input":"Từ sáng đến giờ có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-046","input":"Từ sáng đến giờ hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-047","input":"Từ sáng đến giờ tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-048","input":"Từ sáng đến giờ mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-049","input":"Từ sáng đến giờ tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-050","input":"Từ sáng đến giờ có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-051","input":"Từ đầu ngày đến giờ tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-052","input":"Từ đầu ngày đến giờ mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-053","input":"Từ đầu ngày đến giờ tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-054","input":"Từ đầu ngày đến giờ mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-055","input":"Từ đầu ngày đến giờ có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-056","input":"Từ đầu ngày đến giờ hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-057","input":"Từ đầu ngày đến giờ tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-058","input":"Từ đầu ngày đến giờ mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-059","input":"Từ đầu ngày đến giờ tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-060","input":"Từ đầu ngày đến giờ có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-061","input":"Trong ngày tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-062","input":"Trong ngày mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-063","input":"Trong ngày tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-064","input":"Trong ngày mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-065","input":"Trong ngày có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-066","input":"Trong ngày hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-067","input":"Trong ngày tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-068","input":"Trong ngày mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-069","input":"Trong ngày tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-070","input":"Trong ngày có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-071","input":"Bữa giờ tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-072","input":"Bữa giờ mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-073","input":"Bữa giờ tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-074","input":"Bữa giờ mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-075","input":"Bữa giờ có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-076","input":"Bữa giờ hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-077","input":"Bữa giờ tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-078","input":"Bữa giờ mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-079","input":"Bữa giờ tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-080","input":"Bữa giờ có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-081","input":"Đến lúc này hôm nay tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-082","input":"Đến lúc này hôm nay mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-083","input":"Đến lúc này hôm nay tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-084","input":"Đến lúc này hôm nay mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-085","input":"Đến lúc này hôm nay có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-086","input":"Đến lúc này hôm nay hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-087","input":"Đến lúc này hôm nay tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-088","input":"Đến lúc này hôm nay mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-089","input":"Đến lúc này hôm nay tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-090","input":"Đến lúc này hôm nay có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-091","input":"Từ lúc sáng đến giờ tôi đã chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-092","input":"Từ lúc sáng đến giờ mình chi những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-093","input":"Từ lúc sáng đến giờ tôi đã tiêu gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-094","input":"Từ lúc sáng đến giờ mình tiêu những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-095","input":"Từ lúc sáng đến giờ có những khoản chi nào?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-096","input":"Từ lúc sáng đến giờ hãy liệt kê chi tiêu giúp tôi","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-097","input":"Từ lúc sáng đến giờ tôi đã mua gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-098","input":"Từ lúc sáng đến giờ mình mua những gì?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-099","input":"Từ lúc sáng đến giờ tiền của tôi đi đâu?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
+{"id":"today-expenses-100","input":"Từ lúc sáng đến giờ có khoản chi nào được ghi nhận?","expected":{"kind":"today_expenses"},"tags":["query","today_expenses","augmented_from_seed"]}
