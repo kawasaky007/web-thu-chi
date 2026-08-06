@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LoginForm } from "@/components/auth/login-form";
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { Card, CardContent } from "@/components/ui/card";
 import { sanitizeNextPath } from "@/lib/supabase/route-guard";
 
@@ -23,6 +24,7 @@ export default async function LoginPage({
         </p>
 
         <LoginForm initialMessage={initialMessage} nextPath={nextPath} />
+        <OAuthButtons nextPath={nextPath} />
 
         <p className="mt-6 text-center text-sm font-medium text-ink/52">
           Chưa có tài khoản?{" "}
@@ -39,7 +41,7 @@ function readParam(value: string | string[] | undefined) {
 
 function getLoginMessage(error: string | null) {
   if (error === "auth_callback_failed") {
-    return "Liên kết xác thực không hợp lệ hoặc đã hết hạn.";
+    return "Đăng nhập bằng Google hoặc Apple không thành công. Vui lòng thử lại.";
   }
   if (error === "session_expired") {
     return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";

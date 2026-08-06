@@ -47,6 +47,28 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 File `.env.local` bị Git bỏ qua. Bảo mật dữ liệu phụ thuộc vào Supabase Row
 Level Security, không phụ thuộc vào việc giấu anon key.
 
+## Đăng nhập Google và Apple
+
+Màn hình `/login` đã hỗ trợ OAuth qua Supabase. Cần bật từng provider trong
+Supabase Dashboard tại `Authentication > Providers`, sau đó thêm callback URL
+của web app tại `Authentication > URL Configuration`:
+
+```text
+http://localhost:3000/auth/callback
+https://your-domain.example/auth/callback
+```
+
+Google cần OAuth Client ID/Secret trong Google Cloud; Apple cần Services ID,
+Team ID, Key ID và Sign in with Apple private key trong Apple Developer. Với cả
+hai provider, redirect URI phía Google/Apple là callback của Supabase:
+
+```text
+https://your-project-ref.supabase.co/auth/v1/callback
+```
+
+Không đưa client secret, Apple private key hoặc `service_role` key vào
+`.env.local`, source code hay trình duyệt.
+
 ## Trạng thái migration
 
 Prompt 01-13 đã hoàn thành phần nền tảng kỹ thuật, design system, app shell, PWA
