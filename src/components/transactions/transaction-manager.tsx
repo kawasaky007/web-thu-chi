@@ -776,7 +776,7 @@ export function TransactionForm({
 
         <div className="sticky bottom-0 z-20 -mx-5 mt-1 grid grid-cols-[0.72fr_1.28fr] gap-3 border-t border-forest/10 bg-paper/96 px-5 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgba(31,61,43,0.08)] backdrop-blur-xl sm:-mx-6 sm:px-6 sm:pb-0">
           <Button disabled={pending} onClick={closeForm} type="button" variant="secondary">Hủy</Button>
-          <Button disabled={pending || visibleCategories.length === 0 || members.length === 0 || (!online && Boolean(transaction))} type="submit">
+          <Button disabled={pending || receiptScanning || visibleCategories.length === 0 || members.length === 0 || (!online && Boolean(transaction))} type="submit">
             {pending ? "Đang lưu..." : !online && !transaction ? "Lưu bản nháp" : transaction ? "Lưu thay đổi" : "Lưu giao dịch"}
           </Button>
         </div>
