@@ -46,7 +46,7 @@ export function ReceiptScanButton({
       const result = parseReceiptText(rawText, expenseCategories);
       setState({ status: "idle" });
 
-      if (result.amount === null && result.transactionDate === null) {
+      if (result.amount === null && result.transactionDate === null && result.categoryId === null) {
         notify("Không đọc được thông tin từ ảnh này, vui lòng nhập tay.", "error");
         return;
       }

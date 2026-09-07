@@ -15,7 +15,8 @@ vi.mock("@/lib/receipt-scan/ocr", () => ({
 
 const categories = [
   { id: "cat-food", name: "Ăn uống", type: "expense" as const, color: "#C2410C", icon: "food", sortOrder: 1 },
-  { id: "cat-salary", name: "Lương", type: "income" as const, color: "#0F8B6F", icon: "salary", sortOrder: 2 },
+  { id: "cat-shopping", name: "Mua sắm", type: "expense" as const, color: "#7C2D12", icon: "shopping", sortOrder: 2 },
+  { id: "cat-salary", name: "Lương", type: "income" as const, color: "#0F8B6F", icon: "salary", sortOrder: 3 },
 ];
 
 function makeFile(name = "receipt.jpg", sizeBytes = 1000) {
@@ -73,5 +74,19 @@ describe("ReceiptScanButton", () => {
 
     await waitFor(() => expect(screen.getByText("Quét hóa đơn")).toBeInTheDocument());
     expect(onExtracted).not.toHaveBeenCalled();
+  });
+
+  it("gọi onExtracted khi chỉ đọc được danh mục, không có số tiền hay ngày", async () => {
+    recognizeReceiptImageMock.mockResolvedValue("com ga xoi man");
+    const { onExtracted, input } = renderButton();
+
+    fireEvent.change(input, { target: { files: [makeFile()] } });
+
+    await waitFor(() => expect(onExtracted).toHaveBeenCalledOnce());
+    expect(onExtracted.mock.calls[0][0]).toMatchObject({
+      amount: null,
+      transactionDate: null,
+      categoryId: "cat-food",
+    });
   });
 });
