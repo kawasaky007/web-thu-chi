@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { LinkPendingOverlay } from "@/components/ui/link-pending-overlay";
 
 type MonthPickerProps = {
   month: string;
@@ -132,6 +133,7 @@ export function MonthPicker({
                   >
                     Tháng {monthNumber}
                     {current ? <span aria-hidden="true" className={cn("absolute bottom-1.5 size-1 rounded-full bg-indigo", selected && "bg-yellow")} /> : null}
+                    <LinkPendingOverlay />
                   </Link>
                 );
               })}
@@ -139,8 +141,9 @@ export function MonthPicker({
 
             <div className="mt-4 flex items-center justify-between border-t border-forest/8 pt-3">
               <p className="text-xs font-semibold text-ink/42">Đang xem tháng {selectedMonth}/{selectedYear}</p>
-              <Link className="rounded-xl bg-yellow px-3 py-2 text-xs font-extrabold text-ink transition hover:bg-yellow/78" href={hrefForMonth(formatCurrentVietnamMonth())} onClick={() => setOpen(false)}>
+              <Link className="relative rounded-xl bg-yellow px-3 py-2 text-xs font-extrabold text-ink transition hover:bg-yellow/78" href={hrefForMonth(formatCurrentVietnamMonth())} onClick={() => setOpen(false)}>
                 Tháng này
+                <LinkPendingOverlay />
               </Link>
             </div>
           </section>

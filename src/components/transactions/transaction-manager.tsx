@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { LinkPendingOverlay } from "@/components/ui/link-pending-overlay";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
@@ -124,17 +125,19 @@ export function TransactionsManager({
         <div className="flex items-center gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-1.5">
           <Link
             aria-label="Giao dịch theo tháng"
-            className={`grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "month" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
+            className={`relative grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "month" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
             href={buildTransactionsHref({ ...filterState, view: "month" })}
           >
             Theo tháng
+            <LinkPendingOverlay />
           </Link>
           <Link
             aria-label="Tất cả giao dịch"
-            className={`grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "all" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
+            className={`relative grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "all" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
             href={buildTransactionsHref({ ...filterState, view: "all" })}
           >
             Tất cả
+            <LinkPendingOverlay />
           </Link>
         </div>
       </div>
@@ -180,10 +183,11 @@ export function TransactionsManager({
           )}
           {hasMore && nextCursor ? (
             <Link
-              className="mx-auto flex min-h-12 w-fit items-center rounded-2xl border border-forest/12 bg-paper-raised px-5 text-sm font-extrabold text-forest hover:bg-mist"
+              className="relative mx-auto flex min-h-12 w-fit items-center rounded-2xl border border-forest/12 bg-paper-raised px-5 text-sm font-extrabold text-forest hover:bg-mist"
               href={`${buildTransactionsHref(filterState)}&cursor=${encodeURIComponent(nextCursor)}`}
             >
               Tải thêm giao dịch
+              <LinkPendingOverlay />
             </Link>
           ) : null}
         </div>
@@ -220,12 +224,14 @@ function MonthControls({ filterState }: { filterState: TransactionsFilterState }
   const { month } = filterState;
   return (
     <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-2">
-      <Link aria-label="Tháng trước" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, -1) })}>
+      <Link aria-label="Tháng trước" className="relative grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, -1) })}>
         <ChevronLeft aria-hidden="true" className="size-5" />
+        <LinkPendingOverlay />
       </Link>
       <MonthPicker hrefForMonth={(value) => buildTransactionsHref({ ...filterState, month: value })} month={month} />
-      <Link aria-label="Tháng sau" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, 1) })}>
+      <Link aria-label="Tháng sau" className="relative grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, 1) })}>
         <ChevronRight aria-hidden="true" className="size-5" />
+        <LinkPendingOverlay />
       </Link>
     </div>
   );
@@ -296,11 +302,12 @@ function MemberFilterMenu({
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo">Lọc theo thành viên</p>
               {memberIds.length > 0 ? (
                 <Link
-                  className="text-xs font-extrabold text-forest hover:underline"
+                  className="relative rounded px-1 text-xs font-extrabold text-forest hover:underline"
                   href={buildTransactionsHref({ ...filterState, memberIds: [] })}
                   onClick={closeMenu}
                 >
                   Bỏ lọc
+                  <LinkPendingOverlay />
                 </Link>
               ) : null}
             </div>
@@ -310,7 +317,7 @@ function MemberFilterMenu({
                 return (
                   <Link
                     aria-pressed={checked}
-                    className={`flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-bold transition ${checked ? "bg-mint-soft text-income" : "text-ink/68 hover:bg-mist/70"}`}
+                    className={`relative flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-bold transition ${checked ? "bg-mint-soft text-income" : "text-ink/68 hover:bg-mist/70"}`}
                     href={buildTransactionsHref({ ...filterState, memberIds: toggleMemberFilter(memberIds, member.id) })}
                     key={member.id}
                     onClick={closeMenu}
@@ -321,6 +328,7 @@ function MemberFilterMenu({
                       {checked ? <Check aria-hidden="true" className="size-3.5" strokeWidth={3} /> : null}
                     </span>
                     <span className="truncate">{member.name}</span>
+                    <LinkPendingOverlay />
                   </Link>
                 );
               })}

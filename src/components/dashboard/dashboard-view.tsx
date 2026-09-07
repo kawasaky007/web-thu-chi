@@ -14,6 +14,7 @@ import {
 
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { LinkPendingOverlay } from "@/components/ui/link-pending-overlay";
 import { MonthPicker as MonthPickerMenu } from "@/components/ui/month-picker";
 import { EmptyState } from "@/components/ui/status-state";
 import { CATEGORY_ICONS, CATEGORY_ICON_FALLBACK } from "@/lib/categories/icons";
@@ -221,7 +222,7 @@ function RecentRow({ transaction }: { transaction: DashboardReport["recentTransa
 }
 
 function MonthPicker({ month }: { month: string }) {
-  return <div className="flex items-center justify-between gap-1 rounded-2xl border border-forest/10 bg-paper-raised/70 p-1.5 sm:justify-start"><Link aria-label="Tháng trước" className="grid size-10 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/?month=${shiftMonth(month, -1)}`}><ChevronLeft aria-hidden="true" className="size-4" /></Link><MonthPickerMenu align="end" hrefForMonth={(value) => `/?month=${value}`} month={month} /><Link aria-label="Tháng sau" className="grid size-10 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/?month=${shiftMonth(month, 1)}`}><ChevronRight aria-hidden="true" className="size-4" /></Link></div>;
+  return <div className="flex items-center justify-between gap-1 rounded-2xl border border-forest/10 bg-paper-raised/70 p-1.5 sm:justify-start"><Link aria-label="Tháng trước" className="relative grid size-10 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/?month=${shiftMonth(month, -1)}`}><ChevronLeft aria-hidden="true" className="size-4" /><LinkPendingOverlay /></Link><MonthPickerMenu align="end" hrefForMonth={(value) => `/?month=${value}`} month={month} /><Link aria-label="Tháng sau" className="relative grid size-10 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/?month=${shiftMonth(month, 1)}`}><ChevronRight aria-hidden="true" className="size-4" /><LinkPendingOverlay /></Link></div>;
 }
 
 function categoryStops(categories: DashboardCategoryTotal[]) {

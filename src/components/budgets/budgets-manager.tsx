@@ -54,6 +54,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { LinkPendingOverlay } from "@/components/ui/link-pending-overlay";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
@@ -390,7 +391,7 @@ function CloneBudgetSheet({ month, onClose }: { month: string; onClose: () => vo
 }
 
 function MonthControls({ month }: { month: string }) {
-  return <div className="flex items-center justify-between gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-2"><Link aria-label="Tháng trước" className="grid size-11 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/budgets?month=${shiftMonth(month, -1)}`}><ChevronLeft aria-hidden="true" className="size-5" /></Link><MonthPicker ariaLabel="Chọn tháng ngân sách" hrefForMonth={(value) => `/budgets?month=${value}`} month={month} /><Link aria-label="Tháng sau" className="grid size-11 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/budgets?month=${shiftMonth(month, 1)}`}><ChevronRight aria-hidden="true" className="size-5" /></Link></div>;
+  return <div className="flex items-center justify-between gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-2"><Link aria-label="Tháng trước" className="relative grid size-11 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/budgets?month=${shiftMonth(month, -1)}`}><ChevronLeft aria-hidden="true" className="size-5" /><LinkPendingOverlay /></Link><MonthPicker ariaLabel="Chọn tháng ngân sách" hrefForMonth={(value) => `/budgets?month=${value}`} month={month} /><Link aria-label="Tháng sau" className="relative grid size-11 place-items-center rounded-xl text-forest transition hover:bg-mist" href={`/budgets?month=${shiftMonth(month, 1)}`}><ChevronRight aria-hidden="true" className="size-5" /><LinkPendingOverlay /></Link></div>;
 }
 
 function statusText(budget: BudgetView, ratio: number) {
