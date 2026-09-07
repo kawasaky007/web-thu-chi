@@ -1,16 +1,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ReceiptScanButton } from "@/components/transactions/receipt-scan-button";
 import { ToastProvider } from "@/components/ui/toast";
+import type { ParsedReceipt } from "@/lib/receipt-scan/parser";
 
-const { recognizeReceiptImageMock } = vi.hoisted(() => ({
+const { recognizeReceiptImageMock, cancelReceiptRecognitionMock } = vi.hoisted(() => ({
   recognizeReceiptImageMock: vi.fn(),
+  cancelReceiptRecognitionMock: vi.fn(),
 }));
 
 vi.mock("@/lib/receipt-scan/ocr", () => ({
   MAX_RECEIPT_IMAGE_BYTES: 15_000_000,
   recognizeReceiptImage: recognizeReceiptImageMock,
+  cancelReceiptRecognition: cancelReceiptRecognitionMock,
 }));
 
 const categories = [
@@ -23,10 +27,36 @@ function makeFile(name = "receipt.jpg", sizeBytes = 1000) {
   return new File([new Uint8Array(sizeBytes)], name, { type: "image/jpeg" });
 }
 
+// ReceiptScanButton reports its error message up via onError instead of
+// rendering it internally (see transaction-manager.tsx, where the real error
+// paragraph is rendered full-width next to receiptAmountMissing). This tiny
+// harness plays the role of that parent so existing assertions that look for
+// the error text in the DOM keep working unchanged.
+function Harness({
+  onExtracted,
+  onScanningChange,
+}: {
+  onExtracted: (result: ParsedReceipt) => void;
+  onScanningChange?: (scanning: boolean) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <ReceiptScanButton
+        categories={categories}
+        onError={setError}
+        onExtracted={onExtracted}
+        onScanningChange={onScanningChange}
+      />
+      {error ? <p>{error}</p> : null}
+    </>
+  );
+}
+
 function renderButton(onExtracted = vi.fn()) {
   render(
     <ToastProvider>
-      <ReceiptScanButton categories={categories} onExtracted={onExtracted} />
+      <Harness onExtracted={onExtracted} />
     </ToastProvider>,
   );
   return { onExtracted, input: screen.getByLabelText("Chọn ảnh hóa đơn") as HTMLInputElement };
@@ -88,5 +118,38 @@ describe("ReceiptScanButton", () => {
       transactionDate: null,
       categoryId: "cat-food",
     });
+  });
+
+  it("bấm Hủy trong lúc quét thì quay về trạng thái ban đầu, không hiện lỗi và không gọi onExtracted", async () => {
+    let rejectRecognize!: (error: unknown) => void;
+    recognizeReceiptImageMock.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRecognize = reject;
+        }),
+    );
+    const onExtracted = vi.fn();
+    const onScanningChange = vi.fn();
+    render(
+      <ToastProvider>
+        <Harness onExtracted={onExtracted} onScanningChange={onScanningChange} />
+      </ToastProvider>,
+    );
+    const input = screen.getByLabelText("Chọn ảnh hóa đơn") as HTMLInputElement;
+
+    fireEvent.change(input, { target: { files: [makeFile()] } });
+
+    const cancelButton = await screen.findByRole("button", { name: "Hủy quét hóa đơn" });
+    expect(onScanningChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.click(cancelButton);
+    // Mô phỏng worker.terminate() khiến lời gọi recognize() đang chờ bị reject.
+    rejectRecognize(new Error("worker terminated"));
+
+    await waitFor(() => expect(screen.getByText("Quét hóa đơn")).toBeInTheDocument());
+    expect(cancelReceiptRecognitionMock).toHaveBeenCalledOnce();
+    expect(onScanningChange).toHaveBeenLastCalledWith(false);
+    expect(onExtracted).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Không thể đọc ảnh này/)).not.toBeInTheDocument();
   });
 });

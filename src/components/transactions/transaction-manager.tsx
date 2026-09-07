@@ -13,6 +13,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  TriangleAlert,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -427,6 +428,8 @@ export function TransactionForm({
   const [note, setNote] = useState(transaction?.note ?? "");
   const [showCalculator, setShowCalculator] = useState(false);
   const [receiptAmountMissing, setReceiptAmountMissing] = useState(false);
+  const [receiptScanning, setReceiptScanning] = useState(false);
+  const [receiptScanError, setReceiptScanError] = useState<string | null>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [draftReady, setDraftReady] = useState(Boolean(transaction));
   const [draftDirty, setDraftDirty] = useState(false);
@@ -551,10 +554,12 @@ export function TransactionForm({
 
   const appendCalculator = (value: string) => {
     setDraftDirty(true);
+    setReceiptAmountMissing(false);
     setAmountExpression((current) => formatAmountExpressionInput(`${current}${value}`));
   };
   const clearCalculator = () => {
     setDraftDirty(true);
+    setReceiptAmountMissing(false);
     setAmountExpression("");
   };
   const backspaceCalculator = () => {
@@ -564,6 +569,7 @@ export function TransactionForm({
   const calculate = () => {
     if (amountResult.isValid && amountResult.value !== null) {
       setDraftDirty(true);
+      setReceiptAmountMissing(false);
       setAmountExpression(formatAmountValue(amountResult.value));
     }
   };
@@ -579,6 +585,8 @@ export function TransactionForm({
     setDraftDirty(false);
     setDraftRestored(false);
     setDraftSavedAt(null);
+    setReceiptAmountMissing(false);
+    setReceiptScanError(null);
   };
 
   return (
@@ -609,10 +617,10 @@ export function TransactionForm({
         <fieldset>
           <legend className="mb-2 text-sm font-extrabold text-ink/76">Loại giao dịch</legend>
           <div className="grid grid-cols-2 gap-2 rounded-2xl bg-mist/75 p-1.5">
-            <button aria-pressed={type === "expense"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold ${type === "expense" ? "bg-paper-raised text-expense shadow-sm" : "text-ink/48"}`} onClick={() => selectType("expense")} type="button">
+            <button aria-pressed={type === "expense"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-45 ${type === "expense" ? "bg-paper-raised text-expense shadow-sm" : "text-ink/48"}`} disabled={pending || receiptScanning} onClick={() => selectType("expense")} type="button">
               <ArrowDownRight aria-hidden="true" className="size-4" /> Chi tiêu
             </button>
-            <button aria-pressed={type === "income"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold ${type === "income" ? "bg-paper-raised text-income shadow-sm" : "text-ink/48"}`} onClick={() => selectType("income")} type="button">
+            <button aria-pressed={type === "income"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-45 ${type === "income" ? "bg-paper-raised text-income shadow-sm" : "text-ink/48"}`} disabled={pending || receiptScanning} onClick={() => selectType("income")} type="button">
               <ArrowUpRight aria-hidden="true" className="size-4" /> Thu nhập
             </button>
           </div>
@@ -621,7 +629,7 @@ export function TransactionForm({
         <div>
           <Input
             aria-invalid={state.fieldErrors?.amountExpression ? true : undefined}
-            disabled={pending}
+            disabled={pending || receiptScanning}
             inputMode="decimal"
             label="Số tiền hoặc biểu thức"
             name="amountExpression"
@@ -638,7 +646,16 @@ export function TransactionForm({
               {amountResult.isValid && amountResult.value ? `Kết quả: ${formatMoney(amountResult.value)}` : amountResult.errorMessage ?? "Có thể nhập phép tính + − × ÷ %"}
             </p>
             <div className="flex items-center gap-2">
-              <ReceiptScanButton categories={categories} disabled={pending} onExtracted={applyReceiptResult} />
+              <ReceiptScanButton
+                categories={categories}
+                disabled={pending}
+                onError={setReceiptScanError}
+                onExtracted={applyReceiptResult}
+                onScanningChange={(scanning) => {
+                  setReceiptScanning(scanning);
+                  if (scanning) setReceiptScanError(null);
+                }}
+              />
               <Button onClick={() => setShowCalculator((open) => !open)} size="sm" type="button" variant="secondary">
                 {showCalculator ? "Ẩn máy tính" : "Mở máy tính"}
               </Button>
@@ -649,11 +666,17 @@ export function TransactionForm({
               Không nhận được số tiền từ ảnh, vui lòng nhập tay.
             </p>
           ) : null}
+          {receiptScanError ? (
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-expense">
+              <TriangleAlert aria-hidden="true" className="size-3.5 shrink-0" />
+              {receiptScanError}
+            </p>
+          ) : null}
           {state.fieldErrors?.amountExpression ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.amountExpression}</p> : null}
           {showCalculator ? <CalculatorPad onAppend={appendCalculator} onBackspace={backspaceCalculator} onCalculate={calculate} onClear={clearCalculator} /> : null}
         </div>
 
-        <Select disabled={pending || members.length === 0} label="Người thực hiện" name="userId" onChange={(event) => {
+        <Select disabled={pending || receiptScanning || members.length === 0} label="Người thực hiện" name="userId" onChange={(event) => {
           setDraftDirty(true);
           setUserId(event.target.value);
         }} required value={userId}>
@@ -662,7 +685,7 @@ export function TransactionForm({
         </Select>
         {state.fieldErrors?.userId ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.userId}</p> : null}
 
-        <Input disabled={pending} label="Ngày giao dịch" name="transactionDate" onChange={(event) => {
+        <Input disabled={pending || receiptScanning} label="Ngày giao dịch" name="transactionDate" onChange={(event) => {
           setDraftDirty(true);
           setTransactionDate(event.target.value);
         }} required type="date" value={transactionDate} />
@@ -670,14 +693,14 @@ export function TransactionForm({
 
         <label className="text-sm font-bold text-ink/76">
           <span className="mb-2 block">Ghi chú</span>
-          <textarea className="min-h-24 w-full resize-y rounded-2xl border border-forest/12 bg-paper-raised/86 px-4 py-3 text-base font-semibold text-ink outline-none transition placeholder:text-ink/34 focus:border-indigo/55 focus:ring-4 focus:ring-indigo/10" disabled={pending} maxLength={240} name="note" onChange={(event) => {
+          <textarea className="min-h-24 w-full resize-y rounded-2xl border border-forest/12 bg-paper-raised/86 px-4 py-3 text-base font-semibold text-ink outline-none transition placeholder:text-ink/34 focus:border-indigo/55 focus:ring-4 focus:ring-indigo/10" disabled={pending || receiptScanning} maxLength={240} name="note" onChange={(event) => {
             setDraftDirty(true);
             setNote(event.target.value);
           }} placeholder="Ví dụ: Mua đồ ăn cuối tuần" value={note} />
         </label>
         {state.fieldErrors?.note ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.note}</p> : null}
 
-        <fieldset disabled={pending}>
+        <fieldset disabled={pending || receiptScanning}>
           <legend className="mb-2 text-sm font-extrabold text-ink/76">
             Chọn danh mục {categoryTypeLabelLowercase(type)}
           </legend>

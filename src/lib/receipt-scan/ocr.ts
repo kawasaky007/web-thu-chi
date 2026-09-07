@@ -4,25 +4,49 @@ const MAX_IMAGE_DIMENSION = 1800;
 type TesseractWorker = Awaited<ReturnType<typeof import("tesseract.js").createWorker>>;
 
 let workerPromise: Promise<TesseractWorker> | null = null;
+let activeWorker: TesseractWorker | null = null;
 let currentOnProgress: ((percent: number) => void) | undefined;
 
 async function getWorker(): Promise<TesseractWorker> {
   if (!workerPromise) {
     workerPromise = (async () => {
-      const { createWorker } = await import("tesseract.js");
-      return createWorker("vie", 1, {
-        workerPath: "/tesseract/worker.min.js",
-        corePath: "/tesseract/core",
-        langPath: "/tesseract/lang-data",
-        logger: (message) => {
-          if (message.status === "recognizing text") {
-            currentOnProgress?.(Math.round(message.progress * 100));
-          }
-        },
-      });
+      try {
+        const { createWorker } = await import("tesseract.js");
+        const worker = await createWorker("vie", 1, {
+          workerPath: "/tesseract/worker.min.js",
+          corePath: "/tesseract/core",
+          langPath: "/tesseract/lang-data",
+          logger: (message) => {
+            if (message.status === "recognizing text") {
+              currentOnProgress?.(Math.round(message.progress * 100));
+            }
+          },
+        });
+        activeWorker = worker;
+        return worker;
+      } catch (error) {
+        // Reset so the next call gets a fresh attempt instead of reusing a
+        // permanently-rejected promise (e.g. after a network hiccup).
+        workerPromise = null;
+        throw error;
+      }
     })();
   }
   return workerPromise;
+}
+
+/**
+ * Terminates the in-flight/cached Tesseract worker (if any) and resets the
+ * module-level singleton so a cancelled scan doesn't leave a stale worker or
+ * a stale cached promise behind. Safe to call even if no scan is running.
+ */
+export async function cancelReceiptRecognition(): Promise<void> {
+  if (activeWorker) {
+    await activeWorker.terminate();
+    activeWorker = null;
+  }
+  workerPromise = null;
+  currentOnProgress = undefined;
 }
 
 export async function recognizeReceiptImage(
