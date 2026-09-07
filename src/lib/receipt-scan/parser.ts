@@ -1,5 +1,4 @@
 import {
-  CATEGORY_INTENTS,
   normalizeVietnamese,
   parseVietnameseAmount,
   resolveCategory,
@@ -46,7 +45,7 @@ export function parseReceiptText(
 function extractAmount(lines: string[]): number | null {
   for (let index = 0; index < lines.length; index += 1) {
     const normalized = normalizeVietnamese(lines[index]);
-    if (!TOTAL_KEYWORDS.some((keyword) => normalized.includes(keyword))) continue;
+    if (!TOTAL_KEYWORDS.some((keyword) => hasPhrase(normalized, keyword))) continue;
 
     const onSameLine = parseVietnameseAmount(lines[index]);
     if (onSameLine !== null) return onSameLine;
@@ -101,6 +100,9 @@ function extractCategoryId(rawText: string, expenseCategories: CategoryOption[])
   return match?.id ?? null;
 }
 
-// Giữ import CATEGORY_INTENTS để đảm bảo resolveCategory và danh sách từ khóa
-// dùng chung một nguồn — không định nghĩa lại danh sách intent ở đây.
-void CATEGORY_INTENTS;
+// Phrase-boundary check (mirrors the `hasPhrase` helper in
+// src/lib/assistant/parser.ts) so a keyword like "total" doesn't match as a
+// substring inside "subtotal".
+function hasPhrase(haystack: string, phrase: string) {
+  return ` ${haystack} `.includes(` ${phrase.trim()} `);
+}
