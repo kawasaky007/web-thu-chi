@@ -52,6 +52,12 @@ export function ReceiptScanButton({
       const rawText = await recognizeReceiptImage(file, (percent) =>
         setState({ status: "reading", percent }),
       );
+      if (cancelledRef.current) {
+        // recognize() finished successfully right as the user cancelled —
+        // handleCancel already reset state; honor "no field gets set" on
+        // cancel rather than racing to apply a result anyway.
+        return;
+      }
       const result = parseReceiptText(rawText, expenseCategories);
       setState({ status: "idle" });
       onScanningChange?.(false);
