@@ -144,6 +144,7 @@ describe("TransactionForm offline draft", () => {
           currentMonth="2026-08"
           currentUserId="user-1"
           hasMore={false}
+          memberIds={[]}
           members={members}
           nextCursor={null}
           search=""

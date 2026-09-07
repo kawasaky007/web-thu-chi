@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useActionState, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -13,6 +13,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,11 @@ import {
 } from "@/lib/transactions/amount-calculator";
 import { initialTransactionActionState } from "@/lib/transactions/action-state";
 import {
+  buildTransactionsHref,
+  toggleMemberFilter,
+  type TransactionsFilterState,
+} from "@/lib/transactions/member-filter";
+import {
   clearTransactionDraft,
   readTransactionDraft,
   writeTransactionDraft,
@@ -62,6 +68,7 @@ export function TransactionsManager({
   transactions,
   categories,
   members,
+  memberIds,
   summary,
   currentMonth,
   currentUserId,
@@ -74,6 +81,7 @@ export function TransactionsManager({
   transactions: TransactionView[];
   categories: CategoryOption[];
   members: MemberOption[];
+  memberIds: string[];
   summary: TransactionSummary;
   currentMonth: string;
   currentUserId: string;
@@ -85,10 +93,7 @@ export function TransactionsManager({
 }) {
   const [editor, setEditor] = useState<TransactionView | "new" | null>(openNew ? "new" : null);
   const groups = useMemo(() => groupTransactions(transactions), [transactions]);
-  const queryBase = new URLSearchParams();
-  if (view === "all") queryBase.set("view", "all");
-  else queryBase.set("month", currentMonth);
-  if (search) queryBase.set("q", search);
+  const filterState = { view, month: currentMonth, search, memberIds };
 
   return (
     <>
@@ -120,29 +125,39 @@ export function TransactionsManager({
           <Link
             aria-label="Giao dịch theo tháng"
             className={`grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "month" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
-            href={`/transactions?month=${currentMonth}${search ? `&q=${encodeURIComponent(search)}` : ""}`}
+            href={buildTransactionsHref({ ...filterState, view: "month" })}
           >
             Theo tháng
           </Link>
           <Link
             aria-label="Tất cả giao dịch"
             className={`grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "all" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
-            href={`/transactions?view=all${search ? `&q=${encodeURIComponent(search)}` : ""}`}
+            href={buildTransactionsHref({ ...filterState, view: "all" })}
           >
             Tất cả
           </Link>
         </div>
       </div>
 
-      {view === "month" ? <MonthControls month={currentMonth} search={search} /> : null}
+      {members.length > 0 ? (
+        <div className="mt-3">
+          <MemberFilterMenu filterState={filterState} members={members} />
+        </div>
+      ) : null}
+
+      {view === "month" ? <MonthControls filterState={filterState} /> : null}
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-4">
           {groups.length === 0 ? (
             <EmptyState
               action={<Button onClick={() => setEditor("new")}>Thêm giao dịch đầu tiên</Button>}
-              description={search ? "Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm." : "Ghi lại khoản thu chi đầu tiên để bắt đầu theo dõi dòng tiền."}
-              title={search ? "Không tìm thấy giao dịch" : "Chưa có giao dịch"}
+              description={
+                search || memberIds.length > 0
+                  ? "Thử từ khóa hoặc thành viên khác, hoặc xóa bộ lọc đang áp dụng."
+                  : "Ghi lại khoản thu chi đầu tiên để bắt đầu theo dõi dòng tiền."
+              }
+              title={search || memberIds.length > 0 ? "Không tìm thấy giao dịch" : "Chưa có giao dịch"}
             />
           ) : (
             groups.map((group) => (
@@ -166,7 +181,7 @@ export function TransactionsManager({
           {hasMore && nextCursor ? (
             <Link
               className="mx-auto flex min-h-12 w-fit items-center rounded-2xl border border-forest/12 bg-paper-raised px-5 text-sm font-extrabold text-forest hover:bg-mist"
-              href={`/transactions?${queryBase.toString()}&cursor=${encodeURIComponent(nextCursor)}`}
+              href={`${buildTransactionsHref(filterState)}&cursor=${encodeURIComponent(nextCursor)}`}
             >
               Tải thêm giao dịch
             </Link>
@@ -201,17 +216,118 @@ export function TransactionsManager({
   );
 }
 
-function MonthControls({ month, search }: { month: string; search: string }) {
-  const query = search ? `&q=${encodeURIComponent(search)}` : "";
+function MonthControls({ filterState }: { filterState: TransactionsFilterState }) {
+  const { month } = filterState;
   return (
     <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-2">
-      <Link aria-label="Tháng trước" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={`/transactions?month=${shiftMonth(month, -1)}${query}`}>
+      <Link aria-label="Tháng trước" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, -1) })}>
         <ChevronLeft aria-hidden="true" className="size-5" />
       </Link>
-      <MonthPicker hrefForMonth={(value) => `/transactions?month=${value}${query}`} month={month} />
-      <Link aria-label="Tháng sau" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={`/transactions?month=${shiftMonth(month, 1)}${query}`}>
+      <MonthPicker hrefForMonth={(value) => buildTransactionsHref({ ...filterState, month: value })} month={month} />
+      <Link aria-label="Tháng sau" className="grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, 1) })}>
         <ChevronRight aria-hidden="true" className="size-5" />
       </Link>
+    </div>
+  );
+}
+
+function MemberFilterMenu({
+  filterState,
+  members,
+}: {
+  filterState: TransactionsFilterState;
+  members: MemberOption[];
+}) {
+  const { memberIds } = filterState;
+  const [open, setOpen] = useState(false);
+  const dialogId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  const closeMenu = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  return (
+    <div className="relative inline-block">
+      <button
+        aria-controls={open ? dialogId : undefined}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-forest/10 bg-paper px-3 text-sm font-extrabold text-forest shadow-[0_7px_20px_rgba(31,61,43,0.06)] transition hover:border-forest/20 hover:bg-white"
+        onClick={() => setOpen((current) => !current)}
+        ref={triggerRef}
+        type="button"
+      >
+        <UsersRound aria-hidden="true" className="size-4 text-indigo" />
+        Thành viên{memberIds.length > 0 ? ` (${memberIds.length})` : ""}
+        <ChevronDown aria-hidden="true" className={`size-4 text-forest/45 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <>
+          <button
+            aria-hidden="true"
+            className="fixed inset-0 z-40 cursor-default bg-ink/38 backdrop-blur-[2px] sm:bg-transparent sm:backdrop-blur-none"
+            onClick={closeMenu}
+            tabIndex={-1}
+            type="button"
+          />
+          <section
+            aria-label="Lọc theo thành viên"
+            className="month-picker-enter fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 rounded-[1.75rem] border border-white/60 bg-paper-raised p-4 shadow-[0_28px_90px_rgba(14,14,14,0.24)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-[calc(100%+0.5rem)] sm:w-64 sm:rounded-[1.5rem]"
+            id={dialogId}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo">Lọc theo thành viên</p>
+              {memberIds.length > 0 ? (
+                <Link
+                  className="text-xs font-extrabold text-forest hover:underline"
+                  href={buildTransactionsHref({ ...filterState, memberIds: [] })}
+                  onClick={closeMenu}
+                >
+                  Bỏ lọc
+                </Link>
+              ) : null}
+            </div>
+            <div className="mt-3 space-y-1">
+              {members.map((member) => {
+                const checked = memberIds.includes(member.id);
+                return (
+                  <Link
+                    aria-pressed={checked}
+                    className={`flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-bold transition ${checked ? "bg-mint-soft text-income" : "text-ink/68 hover:bg-mist/70"}`}
+                    href={buildTransactionsHref({ ...filterState, memberIds: toggleMemberFilter(memberIds, member.id) })}
+                    key={member.id}
+                    onClick={closeMenu}
+                  >
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-md border-2 ${checked ? "border-income bg-income text-white" : "border-forest/24"}`}
+                    >
+                      {checked ? <Check aria-hidden="true" className="size-3.5" strokeWidth={3} /> : null}
+                    </span>
+                    <span className="truncate">{member.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

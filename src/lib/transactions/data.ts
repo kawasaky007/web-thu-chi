@@ -99,6 +99,7 @@ type TransactionQueryOptions = {
   currentUserId: string;
   month?: string;
   search?: string;
+  memberIds?: string[];
   cursor?: string;
   limit?: number;
 };
@@ -126,6 +127,10 @@ export async function getTransactionPageData(
 
   if (options.cursor) {
     query = query.lt("created_at", options.cursor);
+  }
+
+  if (options.memberIds && options.memberIds.length > 0) {
+    query = query.in("user_id", options.memberIds);
   }
 
   const [transactionResult, categoryResult, profileResult] = await Promise.all([
