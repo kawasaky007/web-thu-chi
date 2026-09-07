@@ -62,6 +62,8 @@ import {
   type TransactionSummary,
   type TransactionView,
 } from "@/lib/transactions/data";
+import { ReceiptScanButton } from "@/components/transactions/receipt-scan-button";
+import type { ParsedReceipt } from "@/lib/receipt-scan/parser";
 
 const COLLAPSED_CATEGORY_LIMIT = 9;
 
@@ -424,6 +426,7 @@ export function TransactionForm({
   const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate.slice(0, 10) ?? localDateInput());
   const [note, setNote] = useState(transaction?.note ?? "");
   const [showCalculator, setShowCalculator] = useState(false);
+  const [receiptAmountMissing, setReceiptAmountMissing] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [draftReady, setDraftReady] = useState(Boolean(transaction));
   const [draftDirty, setDraftDirty] = useState(false);
@@ -485,6 +488,18 @@ export function TransactionForm({
     }
     onClose();
   }, [draftDirty, onClose, persistDraft, transaction]);
+
+  const applyReceiptResult = (result: ParsedReceipt) => {
+    setDraftDirty(true);
+    if (type !== "expense") {
+      setType("expense");
+      setCategoryId("");
+    }
+    setReceiptAmountMissing(result.amount === null);
+    if (result.amount !== null) setAmountExpression(formatAmountValue(result.amount));
+    if (result.transactionDate !== null) setTransactionDate(result.transactionDate);
+    if (result.categoryId !== null) setCategoryId(result.categoryId);
+  };
 
   useEffect(() => {
     if (transaction || !draftReady || !draftDirty) return;
@@ -612,6 +627,7 @@ export function TransactionForm({
             name="amountExpression"
             onChange={(event) => {
               setDraftDirty(true);
+              setReceiptAmountMissing(false);
               setAmountExpression(formatAmountExpressionInput(event.target.value));
             }}
             placeholder="Ví dụ: 125.000 + 25.000"
@@ -621,10 +637,18 @@ export function TransactionForm({
             <p className={`text-xs font-semibold ${amountResult.isValid && amountResult.value ? "text-income" : "text-ink/45"}`}>
               {amountResult.isValid && amountResult.value ? `Kết quả: ${formatMoney(amountResult.value)}` : amountResult.errorMessage ?? "Có thể nhập phép tính + − × ÷ %"}
             </p>
-            <Button onClick={() => setShowCalculator((open) => !open)} size="sm" type="button" variant="secondary">
-              {showCalculator ? "Ẩn máy tính" : "Mở máy tính"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <ReceiptScanButton categories={categories} disabled={pending} onExtracted={applyReceiptResult} />
+              <Button onClick={() => setShowCalculator((open) => !open)} size="sm" type="button" variant="secondary">
+                {showCalculator ? "Ẩn máy tính" : "Mở máy tính"}
+              </Button>
+            </div>
           </div>
+          {receiptAmountMissing ? (
+            <p className="mt-2 text-xs font-semibold text-expense">
+              Không nhận được số tiền từ ảnh, vui lòng nhập tay.
+            </p>
+          ) : null}
           {state.fieldErrors?.amountExpression ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.amountExpression}</p> : null}
           {showCalculator ? <CalculatorPad onAppend={appendCalculator} onBackspace={backspaceCalculator} onCalculate={calculate} onClear={clearCalculator} /> : null}
         </div>

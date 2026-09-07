@@ -15,6 +15,15 @@ vi.mock("@/app/(app)/transactions/actions", () => ({
   updateTransactionAction: vi.fn(),
 }));
 
+const { recognizeReceiptImageMock } = vi.hoisted(() => ({
+  recognizeReceiptImageMock: vi.fn(),
+}));
+
+vi.mock("@/lib/receipt-scan/ocr", () => ({
+  MAX_RECEIPT_IMAGE_BYTES: 15_000_000,
+  recognizeReceiptImage: recognizeReceiptImageMock,
+}));
+
 const categories = [
   { id: "food", name: "Ăn uống", type: "expense" as const, color: "#087a5b", icon: "food", sortOrder: 1 },
   { id: "salary", name: "Lương", type: "income" as const, color: "#087a5b", icon: "salary", sortOrder: 2 },
@@ -182,5 +191,35 @@ describe("TransactionForm offline draft", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("điền số tiền và ngày vào form sau khi quét hóa đơn thành công", async () => {
+    recognizeReceiptImageMock.mockResolvedValue(
+      "SIEU THI\nNgay 05/09/2026\nTONG CONG 84.000",
+    );
+    renderForm();
+
+    const fileInput = screen.getByLabelText("Chọn ảnh hóa đơn") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File([new Uint8Array(1000)], "receipt.jpg", { type: "image/jpeg" })] },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Số tiền hoặc biểu thức")).toHaveValue("84.000"),
+    );
+    expect(screen.getByLabelText("Ngày giao dịch")).toHaveValue("2026-09-05");
+  });
+
+  it("hiện chú thích khi quét hóa đơn không đọc được số tiền nhưng đọc được ngày", async () => {
+    recognizeReceiptImageMock.mockResolvedValue("Ngay 05/09/2026\nkhong co tong cong");
+    renderForm();
+
+    const fileInput = screen.getByLabelText("Chọn ảnh hóa đơn") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: { files: [new File([new Uint8Array(1000)], "receipt.jpg", { type: "image/jpeg" })] },
+    });
+
+    expect(await screen.findByText("Không nhận được số tiền từ ảnh, vui lòng nhập tay.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ngày giao dịch")).toHaveValue("2026-09-05");
   });
 });
