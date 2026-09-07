@@ -50,20 +50,21 @@ function invalidAmount(expression: string, errorMessage: string): AmountCalculat
 }
 
 function formatAmountToken(token: string) {
+  // "." luôn là dấu nhóm nghìn (nhóm lại từ số thô), không suy luận thành số
+  // thập phân: một số đã format như "100.000" bị xóa ký tự cuối sẽ còn
+  // "100.00", có hình dạng giống hệt một số thập phân hợp lệ. Chỉ "," mới
+  // được coi là dấu thập phân, khớp định dạng vi-VN thật.
   const trailingSeparator = /[.,]$/.test(token);
-  const lastDot = token.lastIndexOf(".");
   const lastComma = token.lastIndexOf(",");
-  const separatorIndex = Math.max(lastDot, lastComma);
-  const separator = separatorIndex >= 0 ? token[separatorIndex] : null;
-  const fraction = separator ? token.slice(separatorIndex + 1) : "";
+  const fraction = lastComma >= 0 ? token.slice(lastComma + 1) : "";
 
-  if (separator && !trailingSeparator && fraction.length > 0 && fraction.length < 3) {
-    const integer = token.slice(0, separatorIndex).replace(/[.,]/g, "");
-    return `${groupInteger(integer)}${separator}${fraction}`;
+  if (lastComma >= 0 && !trailingSeparator && fraction.length > 0 && fraction.length < 3) {
+    const integer = token.slice(0, lastComma).replace(/[.,]/g, "");
+    return `${groupInteger(integer)},${fraction}`;
   }
 
   const digits = token.replace(/[.,]/g, "");
-  return `${groupInteger(digits)}${trailingSeparator ? separator ?? "" : ""}`;
+  return `${groupInteger(digits)}${trailingSeparator ? token.slice(-1) : ""}`;
 }
 
 function groupInteger(value: string) {

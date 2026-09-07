@@ -8,6 +8,10 @@ describe("amount calculator", () => {
     ["125000 + 25000", "125.000 + 25.000"],
     ["3,5 + 1,5", "3,5 + 1,5"],
     ["1.250.000", "1.250.000"],
+    // Xóa ký tự cuối của "100.000" (đã format) phải cho lại đúng số 10.000,
+    // không được hiểu nhầm ".00" còn lại là phần thập phân.
+    ["100.00", "10.000"],
+    ["100.0", "1.000"],
   ])("định dạng số tiền nhập %s thành %s", (input, expected) => {
     expect(formatAmountExpressionInput(input)).toBe(expected);
   });
