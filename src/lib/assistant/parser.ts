@@ -22,7 +22,7 @@ type CategoryIntent = {
   fallbackIcons?: string[];
 };
 
-const CATEGORY_INTENTS: CategoryIntent[] = [
+export const CATEGORY_INTENTS: CategoryIntent[] = [
   { keywords: ["ca phe", "cafe", "coffee", "tra sua"], icons: ["coffee"], fallbackIcons: ["food"] },
   { keywords: ["di cho", "sieu thi", "thuc pham", "rau", "thit", "tap hoa"], icons: ["grocery"], fallbackIcons: ["food", "shopping"] },
   { keywords: ["an sang", "an trua", "an toi", "com", "pho", "bun", "do an", "nha hang"], icons: ["food"] },
@@ -187,7 +187,7 @@ function inferTransactionType(input: string): "income" | "expense" {
   return "expense";
 }
 
-function resolveCategory(input: string, categories: CategoryOption[]) {
+export function resolveCategory(input: string, categories: CategoryOption[]) {
   const explicitMatches = categories
     .map((category) => ({ category, name: normalizeVietnamese(category.name) }))
     .filter(({ name }) => name.length >= 2 && hasPhrase(input, name))
