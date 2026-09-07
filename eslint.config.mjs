@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Self-hosted third-party OCR assets (minified/bundled files copied
+    // from tesseract.js / tesseract.js-core) — not app source, never meant to be linted.
+    "public/tesseract/**",
   ]),
 ]);
 
