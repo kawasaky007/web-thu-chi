@@ -108,6 +108,47 @@ export async function deleteHouseholdAction(
   return { status: "success", message: "Đã xóa household và dữ liệu tài chính chung." };
 }
 
+export async function markNotificationsReadAction(): Promise<void> {
+  const context = await getProfileContext();
+  if (!context) return;
+  await context.supabase
+    .from("notification_reads")
+    .upsert({ user_id: context.userId, last_read_at: new Date().toISOString() });
+}
+
+export async function savePushSubscriptionAction(
+  _previousState: ProfileActionState,
+  formData: FormData,
+): Promise<ProfileActionState> {
+  const subscription = parsePushSubscriptionInput(readProfileFormString(formData, "subscription"));
+  if (!subscription) return { status: "error", message: "Không thể lưu thiết bị nhận thông báo." };
+
+  const context = await getProfileContext();
+  if (!context) return sessionError();
+
+  const { error } = await context.supabase
+    .from("push_subscriptions")
+    .upsert(
+      { user_id: context.userId, ...subscription },
+      { onConflict: "user_id,endpoint" },
+    );
+  if (error) return mapProfileError(error);
+  return { status: "success" };
+}
+
+function parsePushSubscriptionInput(raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+    const endpoint = typeof parsed.endpoint === "string" ? parsed.endpoint : "";
+    const p256dh = typeof parsed.keys?.p256dh === "string" ? parsed.keys.p256dh : "";
+    const auth = typeof parsed.keys?.auth === "string" ? parsed.keys.auth : "";
+    if (!endpoint || !p256dh || !auth) return null;
+    return { endpoint, p256dh, auth };
+  } catch {
+    return null;
+  }
+}
+
 async function getProfileContext() {
   const membership = await getCurrentMembership();
   const householdId = membership?.profile?.household_id;
