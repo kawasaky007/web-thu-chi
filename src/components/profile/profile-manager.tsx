@@ -28,6 +28,7 @@ import {
 import { PageHeader } from "@/components/app/page-header";
 import { AuthFeedback } from "@/components/auth/auth-feedback";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { NotificationSettings } from "@/components/profile/notification-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export function ProfileManager({
               </Button>
             </CardContent>
           </Card>
+          <NotificationSettings />
           <LogoutButton />
         </div>
 

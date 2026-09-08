@@ -26,7 +26,6 @@ import {
   updateRecurringRuleAction,
 } from "@/app/(app)/recurring/actions";
 import { PageHeader } from "@/components/app/page-header";
-import { RecurringReminderSettings } from "@/components/recurring/recurring-reminder-settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfirmAction } from "@/components/ui/confirm-dialog";
@@ -101,8 +100,6 @@ export function RecurringManager({
           Không có lịch nào cần ghi hôm nay.
         </div>
       )}
-
-      <RecurringReminderSettings dueCount={data.dueCount} userId={currentUserId} />
 
       <section className="mt-7 space-y-7">
         <RuleSection

@@ -3,22 +3,18 @@
 import { useEffect, useState } from "react";
 import { BellRing, BellOff, ShieldCheck } from "lucide-react";
 
+import { savePushSubscriptionAction } from "@/app/(app)/profile/actions";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { initialProfileActionState } from "@/lib/profile/action-state";
+import { subscribeToPushNotifications } from "@/lib/notifications/push-client";
 import {
   getRecurringReminderPermission,
   requestRecurringReminderPermission,
-  showRecurringDueReminder,
   type ReminderPermission,
 } from "@/lib/pwa/recurring-reminder";
 
-export function RecurringReminderSettings({
-  dueCount,
-  userId,
-}: {
-  dueCount: number;
-  userId: string;
-}) {
+export function NotificationSettings() {
   const [permission, setPermission] = useState<ReminderPermission | "loading">("loading");
   const [pending, setPending] = useState(false);
   const { notify } = useToast();
@@ -28,17 +24,32 @@ export function RecurringReminderSettings({
     return () => window.clearTimeout(timer);
   }, []);
 
-  const enableReminder = async () => {
+  const enableNotifications = async () => {
     setPending(true);
     try {
       const result = await requestRecurringReminderPermission();
       setPermission(result);
-      if (result === "granted") {
-        const shown = await showRecurringDueReminder({ dueCount, userId, force: true });
-        notify(shown ? "Đã bật và gửi thông báo thử." : "Đã bật nhắc hạn trên thiết bị này.");
-      } else if (result === "denied") {
-        notify("Trình duyệt đang chặn thông báo. Bạn có thể mở lại trong cài đặt website.", "error");
+      if (result !== "granted") {
+        if (result === "denied") {
+          notify("Trình duyệt đang chặn thông báo. Bạn có thể mở lại trong cài đặt website.", "error");
+        }
+        return;
       }
+
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const subscription = vapidPublicKey ? await subscribeToPushNotifications(vapidPublicKey) : null;
+      if (!subscription) {
+        notify("Đã bật nhắc hạn trên thiết bị này. Thiết bị chưa hỗ trợ nhận thông báo khi đóng app.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set("subscription", JSON.stringify(subscription.toJSON()));
+      const saveResult = await savePushSubscriptionAction(initialProfileActionState, formData);
+      notify(
+        saveResult.status === "success" ? "Đã bật thông báo." : "Đã cấp quyền nhưng chưa lưu được thiết bị, thử bật lại sau.",
+        saveResult.status === "success" ? "success" : "error",
+      );
     } finally {
       setPending(false);
     }
@@ -52,17 +63,17 @@ export function RecurringReminderSettings({
         </div>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-extrabold">Nhắc hạn miễn phí trên thiết bị</h2>
+            <h2 className="font-extrabold">Thông báo</h2>
             {permission === "granted" ? <span className="inline-flex items-center gap-1 rounded-full bg-mint-soft px-2 py-1 text-[10px] font-extrabold uppercase text-income"><ShieldCheck aria-hidden="true" className="size-3" />Đã bật</span> : null}
           </div>
           <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-ink/52">
-            App nhắc tối đa một lần mỗi ngày khi bạn mở PWA. Vì không dùng dịch vụ push trả phí, app không thể tự đánh thức khi đã đóng hoàn toàn.
+            Nhận thông báo khi thành viên household thêm giao dịch mới và khi có lịch định kỳ đến hạn, kể cả lúc đã đóng app.
           </p>
           {permission === "unsupported" ? <p className="mt-2 text-xs font-bold text-expense">Thiết bị này chưa hỗ trợ thông báo web; trên iPhone hãy cài PWA ra màn hình chính trước.</p> : null}
           {permission === "denied" ? <p className="mt-2 text-xs font-bold text-expense">Quyền thông báo đã bị chặn trong cài đặt trình duyệt.</p> : null}
         </div>
       </div>
-      {permission === "default" ? <Button disabled={pending} onClick={enableReminder} variant="secondary">{pending ? "Đang bật..." : "Bật nhắc hạn"}</Button> : null}
+      {permission === "default" ? <Button disabled={pending} onClick={enableNotifications} variant="secondary">{pending ? "Đang bật..." : "Bật thông báo"}</Button> : null}
     </section>
   );
 }
