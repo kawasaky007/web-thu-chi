@@ -179,6 +179,29 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_reads: {
+        Row: {
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -225,6 +248,41 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -603,6 +661,15 @@ export type Database = {
       get_dashboard_report: {
         Args: { p_end: string; p_start: string }
         Returns: Json
+      }
+      get_household_push_targets: {
+        Args: { p_exclude_user_id: string }
+        Returns: {
+          auth_key: string
+          endpoint: string
+          p256dh: string
+          subscription_id: string
+        }[]
       }
       get_savings_goals_report: { Args: never; Returns: Json }
       is_same_household: { Args: { hid: string }; Returns: boolean }
