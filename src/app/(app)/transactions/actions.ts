@@ -54,15 +54,16 @@ export async function createTransactionAction(
         validation.data.amount,
         references.category.name,
       );
-      return sendTransactionPushNotifications(context.supabase, context.userId, {
+      return sendTransactionPushNotifications(context.supabase, {
         title: notification.title,
         body: notification.body,
         url: "/transactions",
-      }).catch(() => {
+      }).catch((pushError) => {
         // Gửi push thất bại không được ảnh hưởng tới giao dịch đã lưu thành công.
+        console.error("Không thể gửi thông báo push cho giao dịch mới:", pushError);
       });
-    } catch {
-      // Lỗi đồng bộ (ví dụ formatTransactionNotificationText) cũng không được thoát ra ngoài after().
+    } catch (syncError) {
+      console.error("Không thể chuẩn bị nội dung thông báo push:", syncError);
     }
   });
 

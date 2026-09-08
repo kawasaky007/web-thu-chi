@@ -89,4 +89,19 @@ describe("NotificationSettings", () => {
       expect(screen.queryByText("Đang bật...")).not.toBeInTheDocument();
     });
   });
+
+  it("vẫn hiện nút để đăng ký thiết bị khi quyền đã granted từ trước", async () => {
+    getPermission.mockReturnValue("granted");
+    requestPermission.mockResolvedValue("granted");
+    subscribeToPush.mockResolvedValue({
+      toJSON: () => ({ endpoint: "https://push.example/2", keys: { p256dh: "key2", auth: "secret2" } }),
+    } as never);
+    saveSubscription.mockResolvedValue({ status: "success" });
+
+    renderSettings();
+    const button = await screen.findByRole("button", { name: "Đăng ký thiết bị này" });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(saveSubscription).toHaveBeenCalledOnce());
+  });
 });

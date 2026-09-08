@@ -9,6 +9,8 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { NotificationTransactionItem } from "@/lib/notifications/data";
 import type { CategoryOption, MemberOption } from "@/lib/transactions/data";
 
+const REALTIME_MAX_AGE_MS = 5 * 60 * 1000;
+
 export function NotificationBell({
   categories,
   currentUserId,
@@ -30,6 +32,7 @@ export function NotificationBell({
   const [items, setItems] = useState(initialItems);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const dialogId = useId();
+  const headingId = `${dialogId}-heading`;
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -42,16 +45,20 @@ export function NotificationBell({
         (payload: { new: Record<string, unknown> }) => {
           const row = payload.new;
           const rowUserId = typeof row.user_id === "string" ? row.user_id : null;
+          const rowActorId = typeof row.created_by === "string" ? row.created_by : rowUserId;
           const rowType = row.type;
-          if (!rowUserId || rowUserId === currentUserId) return;
+          const rowCreatedAt = typeof row.created_at === "string" ? row.created_at : null;
+          if (!rowActorId || rowActorId === currentUserId) return;
           if (rowType !== "income" && rowType !== "expense") return;
+          if (!rowCreatedAt || Date.now() - new Date(rowCreatedAt).getTime() > REALTIME_MAX_AGE_MS) return;
           const item: NotificationTransactionItem = {
             id: String(row.id),
             type: rowType,
             amount: Number(row.amount),
             categoryId: typeof row.category_id === "string" ? row.category_id : null,
-            userId: rowUserId,
-            createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+            userId: rowUserId ?? "",
+            actorId: rowActorId,
+            createdAt: rowCreatedAt,
           };
           setItems((current) => [item, ...current].slice(0, 20));
           setUnreadCount((current) => current + 1);
@@ -60,8 +67,8 @@ export function NotificationBell({
       .subscribe();
 
     return () => {
-      void channel.unsubscribe();
-      void supabase.removeChannel(channel);
+      channel.unsubscribe().catch(() => {});
+      supabase.removeChannel(channel).catch(() => {});
     };
   }, [currentUserId, householdId]);
 
@@ -84,7 +91,7 @@ export function NotificationBell({
   const openBell = () => {
     setOpen(true);
     setUnreadCount(0);
-    void markNotificationsReadAction();
+    markNotificationsReadAction().catch(() => {});
   };
 
   const closeBell = () => {
@@ -122,12 +129,13 @@ export function NotificationBell({
             type="button"
           />
           <section
-            aria-label="Thông báo"
+            aria-labelledby={headingId}
             className="month-picker-enter fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 max-h-[70vh] overflow-y-auto rounded-[1.75rem] border border-white/60 bg-paper-raised p-4 shadow-[0_28px_90px_rgba(14,14,14,0.24)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:w-80 sm:rounded-[1.5rem]"
             id={dialogId}
+            role="dialog"
           >
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo">Thông báo</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo" id={headingId}>Thông báo</p>
               <button aria-label="Đóng thông báo" onClick={closeBell} type="button">
                 <X aria-hidden="true" className="size-4 text-forest/45" />
               </button>
@@ -170,7 +178,7 @@ function NotificationItemRow({
   members: MemberOption[];
 }) {
   const category = categories.find((candidate) => candidate.id === item.categoryId);
-  const member = members.find((candidate) => candidate.id === item.userId);
+  const member = members.find((candidate) => candidate.id === item.actorId);
   const amountLabel = new Intl.NumberFormat("vi-VN").format(Math.round(item.amount));
   const typeLabel = item.type === "income" ? "thu" : "chi";
 

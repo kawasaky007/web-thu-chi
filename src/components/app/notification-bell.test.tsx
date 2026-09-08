@@ -16,7 +16,8 @@ const { onMock, subscribeMock, unsubscribeMock, removeChannelMock, createBrowser
   };
   channel.on.mockReturnValue(channel);
   channel.subscribe.mockReturnValue(channel);
-  const removeChannelMock = vi.fn();
+  channel.unsubscribe.mockResolvedValue("ok");
+  const removeChannelMock = vi.fn().mockResolvedValue("ok");
   const createBrowserSupabaseClientMock = vi.fn(() => ({
     channel: vi.fn(() => channel),
     removeChannel: removeChannelMock,
@@ -58,6 +59,8 @@ describe("NotificationBell", () => {
     vi.clearAllMocks();
     onMock.mockReturnValue({ on: onMock, subscribe: subscribeMock, unsubscribe: unsubscribeMock });
     subscribeMock.mockReturnValue({ on: onMock, subscribe: subscribeMock, unsubscribe: unsubscribeMock });
+    unsubscribeMock.mockResolvedValue("ok");
+    removeChannelMock.mockResolvedValue("ok");
   });
 
   it("hiện tổng số lịch định kỳ đến hạn và giao dịch chưa xem", () => {
@@ -77,6 +80,7 @@ describe("NotificationBell", () => {
           amount: 45000,
           category_id: "food",
           user_id: "user-2",
+          created_by: "user-2",
           created_at: new Date().toISOString(),
         },
       });
@@ -100,6 +104,7 @@ describe("NotificationBell", () => {
           amount: 10000,
           category_id: "food",
           user_id: "user-1",
+          created_by: "user-1",
           created_at: new Date().toISOString(),
         },
       });
@@ -114,5 +119,68 @@ describe("NotificationBell", () => {
 
     expect(markNotificationsReadActionMock).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "1 thông báo chưa xem" })).toBeInTheDocument();
+  });
+
+  it("dùng người thực hiện (created_by) để loại trừ và hiển thị, không dùng người được ghi nhận (user_id)", () => {
+    renderBell({ initialUnreadCount: 0 });
+    const handler = onMock.mock.calls[0][2] as (payload: unknown) => void;
+
+    act(() => {
+      handler({
+        new: {
+          id: "tx-on-behalf",
+          type: "expense",
+          amount: 30000,
+          category_id: "food",
+          user_id: "user-1",
+          created_by: "user-2",
+          created_at: new Date().toISOString(),
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "1 thông báo chưa xem" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "1 thông báo chưa xem" }));
+    expect(screen.getByText("Bình")).toBeInTheDocument();
+  });
+
+  it("bỏ qua sự kiện Realtime của giao dịch cũ (ví dụ từ khôi phục sao lưu)", () => {
+    renderBell({ initialUnreadCount: 0 });
+    const handler = onMock.mock.calls[0][2] as (payload: unknown) => void;
+
+    act(() => {
+      handler({
+        new: {
+          id: "tx-old",
+          type: "expense",
+          amount: 20000,
+          category_id: "food",
+          user_id: "user-2",
+          created_by: "user-2",
+          created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "Thông báo" })).toBeInTheDocument();
+  });
+
+  it("hủy đăng ký Realtime khi unmount", () => {
+    const { unmount } = render(
+      <NotificationBell
+        categories={categories}
+        currentUserId="user-1"
+        householdId="household-1"
+        initialItems={[]}
+        initialUnreadCount={0}
+        members={members}
+        recurringDueCount={0}
+      />,
+    );
+
+    unmount();
+
+    expect(unsubscribeMock).toHaveBeenCalledOnce();
+    expect(removeChannelMock).toHaveBeenCalledOnce();
   });
 });

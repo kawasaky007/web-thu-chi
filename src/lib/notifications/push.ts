@@ -5,14 +5,11 @@ import type { Database } from "@/types/database";
 
 export async function sendTransactionPushNotifications(
   supabase: SupabaseClient<Database>,
-  actorUserId: string,
   payload: { title: string; body: string; url: string },
 ): Promise<void> {
   configureWebPush();
 
-  const { data: targets, error } = await supabase.rpc("get_household_push_targets", {
-    p_exclude_user_id: actorUserId,
-  });
+  const { data: targets, error } = await supabase.rpc("get_household_push_targets");
   if (error) throw error;
   if (!targets || targets.length === 0) return;
 
@@ -25,7 +22,7 @@ export async function sendTransactionPushNotifications(
       );
     } catch (sendError) {
       if (sendError instanceof WebPushError && (sendError.statusCode === 404 || sendError.statusCode === 410)) {
-        await supabase.from("push_subscriptions").delete().eq("id", target.subscription_id);
+        await supabase.rpc("delete_household_push_subscription", { p_subscription_id: target.subscription_id });
       }
       // Một thiết bị gửi lỗi (mạng, 5xx, ...) không được làm hỏng các thiết bị khác.
     }

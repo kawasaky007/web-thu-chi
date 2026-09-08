@@ -658,12 +658,16 @@ export type Database = {
         Args: { confirmation_name: string }
         Returns: string
       }
+      delete_household_push_subscription: {
+        Args: { p_subscription_id: string }
+        Returns: undefined
+      }
       get_dashboard_report: {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
       get_household_push_targets: {
-        Args: { p_exclude_user_id: string }
+        Args: never
         Returns: {
           auth_key: string
           endpoint: string

@@ -11,7 +11,8 @@ TypeScript, Tailwind CSS và Supabase.
 - Vitest và Testing Library
 - PWA service worker, update prompt, offline shell và nháp giao dịch cục bộ
 - Xuất/nhập backup giao dịch JSON và CSV ngay trên thiết bị
-- Giao dịch định kỳ tuần/tháng và nhắc hạn bằng Notifications API
+- Giao dịch định kỳ tuần/tháng, nhắc hạn cục bộ và thông báo đẩy (Web Push) khi
+  thành viên household thêm giao dịch mới
 - Mục tiêu tiết kiệm, quỹ khẩn cấp và ledger đóng/rút riêng
 - Playwright E2E trên Chromium mobile
 - Supabase SSR Auth với cookie và generated database types
@@ -105,8 +106,12 @@ Trang `/recurring` quản lý lịch thu/chi theo tuần hoặc tháng. RPC
 `(rule_id, due_date)` và tạo transaction trong cùng database transaction nên an
 toàn khi retry hoặc có nhiều client cùng bấm. Ngày đến hạn dùng múi giờ Việt Nam;
 tháng ngắn tự lùi về ngày cuối tháng. Nút chuông app shell có badge số lịch đến
-hạn. Notifications API chỉ nhắc khi PWA được mở, tối đa một lần/ngày trên từng
-thiết bị; không dùng push service và không thể đánh thức app đã đóng hoàn toàn.
+hạn và giao dịch mới từ thành viên khác trong household, cập nhật ngay qua Supabase
+Realtime khi app đang mở. Nhắc lịch định kỳ vẫn dùng Notifications API cục bộ, chỉ
+hiện khi PWA được mở và tối đa một lần/ngày trên từng thiết bị. Giao dịch mới còn
+được gửi qua Web Push (VAPID) tới các thiết bị đã đăng ký, hoạt động cả khi app hoặc
+trình duyệt đã đóng hoàn toàn — riêng Safari trên iOS chỉ nhận được khi đã cài PWA
+ra màn hình chính.
 
 Trang `/goals` quản lý mục tiêu tích lũy và quỹ khẩn cấp mà không ghi sai thành
 chi tiêu. Số dư được tính từ ledger `deposit`/`withdrawal`; RPC khóa goal, chặn

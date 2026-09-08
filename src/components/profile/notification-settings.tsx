@@ -75,7 +75,11 @@ export function NotificationSettings() {
           {permission === "denied" ? <p className="mt-2 text-xs font-bold text-expense">Quyền thông báo đã bị chặn trong cài đặt trình duyệt.</p> : null}
         </div>
       </div>
-      {permission === "default" ? <Button disabled={pending} onClick={enableNotifications} variant="secondary">{pending ? "Đang bật..." : "Bật thông báo"}</Button> : null}
+      {permission === "default" || permission === "granted" ? (
+        <Button disabled={pending} onClick={enableNotifications} variant="secondary">
+          {pending ? "Đang bật..." : permission === "granted" ? "Đăng ký thiết bị này" : "Bật thông báo"}
+        </Button>
+      ) : null}
     </section>
   );
 }
