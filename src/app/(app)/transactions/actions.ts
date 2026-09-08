@@ -47,19 +47,23 @@ export async function createTransactionAction(
   if (error) return mapTransactionError(error);
 
   after(() => {
-    const notification = formatTransactionNotificationText(
-      context.actorName,
-      references.category.type,
-      validation.data.amount,
-      references.category.name,
-    );
-    return sendTransactionPushNotifications(context.supabase, context.userId, {
-      title: notification.title,
-      body: notification.body,
-      url: "/transactions",
-    }).catch(() => {
-      // Gửi push thất bại không được ảnh hưởng tới giao dịch đã lưu thành công.
-    });
+    try {
+      const notification = formatTransactionNotificationText(
+        context.actorName,
+        references.category.type,
+        validation.data.amount,
+        references.category.name,
+      );
+      return sendTransactionPushNotifications(context.supabase, context.userId, {
+        title: notification.title,
+        body: notification.body,
+        url: "/transactions",
+      }).catch(() => {
+        // Gửi push thất bại không được ảnh hưởng tới giao dịch đã lưu thành công.
+      });
+    } catch {
+      // Lỗi đồng bộ (ví dụ formatTransactionNotificationText) cũng không được thoát ra ngoài after().
+    }
   });
 
   revalidateTransactions();

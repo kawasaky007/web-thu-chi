@@ -4,6 +4,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn((callback: () => unknown) => { void callback(); }) }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentMembership: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() }));
+vi.mock("@/lib/notifications/format", () => ({ formatTransactionNotificationText: vi.fn() }));
 vi.mock("@/lib/notifications/push", () => ({ sendTransactionPushNotifications: vi.fn().mockResolvedValue(undefined) }));
 
 import {
@@ -12,12 +13,14 @@ import {
   updateTransactionAction,
 } from "./actions";
 import { getCurrentMembership } from "@/lib/auth/session";
+import { formatTransactionNotificationText } from "@/lib/notifications/format";
 import { sendTransactionPushNotifications } from "@/lib/notifications/push";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { initialTransactionActionState } from "@/lib/transactions/action-state";
 
 const getMembership = vi.mocked(getCurrentMembership);
 const createClient = vi.mocked(createServerSupabaseClient);
+const formatNotification = vi.mocked(formatTransactionNotificationText);
 const sendPush = vi.mocked(sendTransactionPushNotifications);
 
 describe("transaction actions", () => {
@@ -29,6 +32,10 @@ describe("transaction actions", () => {
       metadataFullName: "An",
       profile: { household_id: "household-1" },
       household: { id: "household-1" },
+    } as never);
+    formatNotification.mockReturnValue({
+      title: "Giao dịch mới",
+      body: "Bạn đã tạo một giao dịch mới",
     } as never);
   });
 
@@ -107,6 +114,33 @@ describe("transaction actions", () => {
 
     expect(result.status).toBe("success");
     expect(sendPush).toHaveBeenCalledOnce();
+  });
+
+  it("vẫn trả success dù format nội dung thông báo throw lỗi", async () => {
+    const categoryQuery = createChain({ data: { id: "cat-1", household_id: "household-1", name: "Ăn uống", type: "expense" }, error: null });
+    const memberQuery = createChain({ data: { id: "user-1", household_id: "household-1" }, error: null });
+    const insertQuery = createChain({ data: { id: "tx-new" }, error: null });
+    const client = {
+      from: vi.fn()
+        .mockReturnValueOnce(categoryQuery)
+        .mockReturnValueOnce(memberQuery)
+        .mockReturnValueOnce(insertQuery),
+    };
+    createClient.mockResolvedValue(client as never);
+    formatNotification.mockImplementationOnce(() => { throw new Error("format failed"); });
+
+    const result = await createTransactionAction(
+      initialTransactionActionState,
+      makeFormData({
+        amountExpression: "45000",
+        categoryId: "cat-1",
+        userId: "user-1",
+        transactionDate: "2026-08-03",
+        note: "",
+      }),
+    );
+
+    expect(result.status).toBe("success");
   });
 
   it("update luôn kèm household hiện tại", async () => {
