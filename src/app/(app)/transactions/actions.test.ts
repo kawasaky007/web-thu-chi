@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/server", () => ({ after: vi.fn((callback: () => unknown) => { void callback(); }) }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentMembership: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn() }));
+vi.mock("@/lib/notifications/push", () => ({ sendTransactionPushNotifications: vi.fn().mockResolvedValue(undefined) }));
 
 import {
   createTransactionAction,
@@ -10,11 +12,13 @@ import {
   updateTransactionAction,
 } from "./actions";
 import { getCurrentMembership } from "@/lib/auth/session";
+import { sendTransactionPushNotifications } from "@/lib/notifications/push";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { initialTransactionActionState } from "@/lib/transactions/action-state";
 
 const getMembership = vi.mocked(getCurrentMembership);
 const createClient = vi.mocked(createServerSupabaseClient);
+const sendPush = vi.mocked(sendTransactionPushNotifications);
 
 describe("transaction actions", () => {
   beforeEach(() => {
@@ -75,6 +79,34 @@ describe("transaction actions", () => {
       note: "Đi chợ",
       transaction_date: "2026-08-03T00:00:00",
     });
+  });
+
+  it("vẫn trả success dù gửi thông báo push thất bại", async () => {
+    const categoryQuery = createChain({ data: { id: "cat-1", household_id: "household-1", name: "Ăn uống", type: "expense" }, error: null });
+    const memberQuery = createChain({ data: { id: "user-1", household_id: "household-1" }, error: null });
+    const insertQuery = createChain({ data: { id: "tx-new" }, error: null });
+    const client = {
+      from: vi.fn()
+        .mockReturnValueOnce(categoryQuery)
+        .mockReturnValueOnce(memberQuery)
+        .mockReturnValueOnce(insertQuery),
+    };
+    createClient.mockResolvedValue(client as never);
+    sendPush.mockRejectedValueOnce(new Error("push failed"));
+
+    const result = await createTransactionAction(
+      initialTransactionActionState,
+      makeFormData({
+        amountExpression: "45000",
+        categoryId: "cat-1",
+        userId: "user-1",
+        transactionDate: "2026-08-03",
+        note: "",
+      }),
+    );
+
+    expect(result.status).toBe("success");
+    expect(sendPush).toHaveBeenCalledOnce();
   });
 
   it("update luôn kèm household hiện tại", async () => {

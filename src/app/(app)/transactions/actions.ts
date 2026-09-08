@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
+import { resolveProfileName } from "@/lib/auth/profile";
 import { getCurrentMembership } from "@/lib/auth/session";
+import { formatTransactionNotificationText } from "@/lib/notifications/format";
+import { sendTransactionPushNotifications } from "@/lib/notifications/push";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   readTransactionFormString,
@@ -41,6 +45,23 @@ export async function createTransactionAction(
     .single();
 
   if (error) return mapTransactionError(error);
+
+  after(() => {
+    const notification = formatTransactionNotificationText(
+      context.actorName,
+      references.category.type,
+      validation.data.amount,
+      references.category.name,
+    );
+    return sendTransactionPushNotifications(context.supabase, context.userId, {
+      title: notification.title,
+      body: notification.body,
+      url: "/transactions",
+    }).catch(() => {
+      // Gửi push thất bại không được ảnh hưởng tới giao dịch đã lưu thành công.
+    });
+  });
+
   revalidateTransactions();
   return { status: "success", message: "Đã lưu giao dịch.", transactionId: data.id };
 }
@@ -130,6 +151,7 @@ async function getTransactionContext() {
   return {
     householdId,
     userId: membership.userId,
+    actorName: resolveProfileName(membership.profile, membership.metadataFullName || membership.email.split("@")[0]),
     supabase: await createServerSupabaseClient(),
   };
 }

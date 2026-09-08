@@ -31,6 +31,24 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+  const title = payload.title || "Thu Chi Gia Đình";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: payload.url || "/" },
+    }),
+  );
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = new URL(event.notification.data?.url || "/recurring", self.location.origin).href;
