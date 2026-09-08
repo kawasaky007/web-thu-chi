@@ -2,12 +2,14 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Bell, MessageCircle, PiggyBank, Plus, Sparkles } from "lucide-react";
+import { MessageCircle, PiggyBank, Plus, Sparkles } from "lucide-react";
 
 import { AssistantChat } from "@/components/assistant/assistant-chat";
 import { Brand } from "@/components/brand";
 import { DesktopNavigation, MobileNavigation } from "@/components/app/navigation";
+import { NotificationBell } from "@/components/app/notification-bell";
 import { TransactionForm } from "@/components/transactions/transaction-manager";
+import type { NotificationTransactionItem } from "@/lib/notifications/data";
 import type { CategoryOption, MemberOption } from "@/lib/transactions/data";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,10 @@ import { RecurringReminderNotifier } from "@/components/recurring/recurring-remi
 export function AppShell({
   children,
   email,
+  householdId,
   householdName,
+  initialNotificationItems,
+  initialUnreadCount,
   initials,
   profileName,
   transactionCategories,
@@ -27,7 +32,10 @@ export function AppShell({
 }: {
   children: ReactNode;
   email: string;
+  householdId: string;
   householdName: string;
+  initialNotificationItems: NotificationTransactionItem[];
+  initialUnreadCount: number;
   initials: string;
   profileName: string;
   transactionCategories: CategoryOption[];
@@ -84,18 +92,15 @@ export function AppShell({
               >
                 <PiggyBank aria-hidden="true" className="size-5" />
               </Link>
-              <Link
-                aria-label={recurringDueCount > 0 ? `${recurringDueCount} giao dịch định kỳ đến hạn` : "Giao dịch định kỳ"}
-                className="relative inline-flex size-11 items-center justify-center rounded-2xl border border-forest/14 bg-paper-raised/82 text-forest transition hover:bg-mist/70"
-                href="/recurring"
-              >
-                <Bell aria-hidden="true" className="size-5" />
-                {recurringDueCount > 0 ? (
-                  <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-expense px-1.5 py-0.5 text-[10px] font-extrabold leading-4 text-white shadow-sm">
-                    {recurringDueCount > 99 ? "99+" : recurringDueCount}
-                  </span>
-                ) : null}
-              </Link>
+              <NotificationBell
+                categories={transactionCategories}
+                currentUserId={currentUserId}
+                householdId={householdId}
+                initialItems={initialNotificationItems}
+                initialUnreadCount={initialUnreadCount}
+                members={transactionMembers}
+                recurringDueCount={recurringDueCount}
+              />
               <Button className="hidden sm:inline-flex" onClick={() => setQuickAddOpen(true)}>
                 <Plus aria-hidden="true" className="size-5" /> Thêm giao dịch
               </Button>

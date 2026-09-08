@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { getInitials } from "@/lib/auth/display";
 import { resolveProfileName } from "@/lib/auth/profile";
 import { getCurrentMembership } from "@/lib/auth/session";
+import { getUnreadTransactionNotifications } from "@/lib/notifications/data";
 import { getRecurringDueCount } from "@/lib/recurring/data";
 import { getTransactionFormOptions } from "@/lib/transactions/data";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -20,16 +21,21 @@ export default async function MainAppLayout({ children }: { children: ReactNode 
     membership.profile,
     membership.metadataFullName || membership.email.split("@")[0],
   );
+  const householdId = membership.profile.household_id;
   const supabase = await createServerSupabaseClient();
-  const [options, recurringDueCount] = await Promise.all([
-    getTransactionFormOptions(supabase, membership.profile.household_id),
-    getRecurringDueCount(supabase, membership.profile.household_id),
+  const [options, recurringDueCount, notifications] = await Promise.all([
+    getTransactionFormOptions(supabase, householdId),
+    getRecurringDueCount(supabase, householdId),
+    getUnreadTransactionNotifications(supabase, membership.userId, householdId),
   ]);
 
   return (
     <AppShell
       email={membership.profile.email || membership.email}
+      householdId={householdId}
       householdName={membership.household.name}
+      initialNotificationItems={notifications.items}
+      initialUnreadCount={notifications.unreadCount}
       initials={getInitials(profileName)}
       profileName={profileName}
       transactionCategories={options.categories}
