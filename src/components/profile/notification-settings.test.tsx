@@ -75,4 +75,18 @@ describe("NotificationSettings", () => {
 
     expect(await screen.findByText("Quyền thông báo đã bị chặn trong cài đặt trình duyệt.")).toBeInTheDocument();
   });
+
+  it("báo lỗi và cho bật lại khi subscribe push bị từ chối bất ngờ", async () => {
+    requestPermission.mockResolvedValue("granted");
+    subscribeToPush.mockRejectedValue(new Error("push service unreachable"));
+
+    renderSettings();
+    const button = await screen.findByRole("button", { name: "Bật thông báo" });
+    fireEvent.click(button);
+
+    expect(await screen.findByText("Có lỗi khi bật thông báo, vui lòng thử lại.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Đang bật...")).not.toBeInTheDocument();
+    });
+  });
 });

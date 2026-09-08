@@ -50,6 +50,8 @@ export function NotificationSettings() {
         saveResult.status === "success" ? "Đã bật thông báo." : "Đã cấp quyền nhưng chưa lưu được thiết bị, thử bật lại sau.",
         saveResult.status === "success" ? "success" : "error",
       );
+    } catch {
+      notify("Có lỗi khi bật thông báo, vui lòng thử lại.", "error");
     } finally {
       setPending(false);
     }
