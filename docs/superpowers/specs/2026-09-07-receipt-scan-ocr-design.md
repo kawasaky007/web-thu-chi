@@ -166,11 +166,12 @@ gộp hết dòng thành 1 chuỗi và làm mất cấu trúc dòng cần để 
 1. Chuẩn hóa từng dòng bằng `normalizeVietnamese` (đã có), tìm dòng chứa 1
    trong các từ khóa: `tong cong`, `tong tien`, `thanh tien`,
    `tong thanh toan`, `total`, `grand total`, `net total`.
-2. Nếu thấy dòng khớp: thử lấy số tiền lớn nhất trên chính dòng đó bằng cách
-   tái dùng logic regex số kiểu VNĐ đã có trong
-   `src/lib/assistant/parser.ts` (`parseVietnameseAmount`, đã export sẵn);
-   nếu dòng đó không có số, thử dòng kế tiếp (số tiền hay in xuống dòng sau
-   nhãn).
+2. Nếu thấy dòng khớp: thử lấy số tiền trên chính dòng đó bằng cách tái dùng
+   logic regex số kiểu VNĐ đã có trong `src/lib/assistant/parser.ts`
+   (`parseVietnameseAmount`, đã export sẵn) — hàm này trả về số tiền **cuối
+   cùng** xuất hiện trên dòng, không phải số lớn nhất (một dòng nhãn tổng
+   cộng thực tế chỉ có đúng 1 số nên khác biệt này không ảnh hưởng); nếu dòng
+   đó không có số, thử dòng kế tiếp (số tiền hay in xuống dòng sau nhãn).
 3. Nếu không có dòng nào khớp từ khóa (hoặc khớp nhưng không tìm được số):
    chạy `parseVietnameseAmount` trên **từng dòng** của toàn bộ hóa đơn, gom
    mọi số tìm được, trả về **giá trị lớn nhất** — tổng cộng luôn là số tiền

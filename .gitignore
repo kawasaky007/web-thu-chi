@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# superpowers subagent-driven-development scratch workspace (ledger, briefs, reports)
+.superpowers/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
