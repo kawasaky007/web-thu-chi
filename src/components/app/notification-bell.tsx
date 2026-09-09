@@ -141,7 +141,14 @@ export function NotificationBell({
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo" id={headingId}>Thông báo</p>
               <div className="flex items-center gap-3">
                 {items.length > 0 ? (
-                  <button className="text-xs font-extrabold text-forest/55 hover:text-forest hover:underline" onClick={() => setItems([])} type="button">
+                  <button
+                    className="text-xs font-extrabold text-forest/55 hover:text-forest hover:underline"
+                    onClick={() => {
+                      setItems([]);
+                      setUnreadCount(0);
+                    }}
+                    type="button"
+                  >
                     Xóa tất cả
                   </button>
                 ) : null}

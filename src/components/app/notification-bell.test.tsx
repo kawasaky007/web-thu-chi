@@ -165,6 +165,33 @@ describe("NotificationBell", () => {
     expect(screen.getByRole("button", { name: "Thông báo" })).toBeInTheDocument();
   });
 
+  it("bấm Xóa tất cả thì xóa cả danh sách lẫn số badge, kể cả khi có giao dịch mới đến lúc đang mở", () => {
+    renderBell({ initialUnreadCount: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "Thông báo" }));
+    expect(markNotificationsReadActionMock).toHaveBeenCalledOnce();
+
+    const handler = onMock.mock.calls[0][2] as (payload: unknown) => void;
+    act(() => {
+      handler({
+        new: {
+          id: "tx-while-open",
+          type: "expense",
+          amount: 15000,
+          category_id: "food",
+          user_id: "user-2",
+          created_by: "user-2",
+          created_at: new Date().toISOString(),
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "1 thông báo chưa xem" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Xóa tất cả" }));
+
+    expect(screen.getByText("Chưa có giao dịch mới nào.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Thông báo" })).toBeInTheDocument();
+  });
+
   it("hủy đăng ký Realtime khi unmount", () => {
     const { unmount } = render(
       <NotificationBell
