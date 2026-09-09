@@ -139,23 +139,9 @@ export function NotificationBell({
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo" id={headingId}>Thông báo</p>
-              <div className="flex items-center gap-3">
-                {items.length > 0 ? (
-                  <button
-                    className="text-xs font-extrabold text-forest/55 hover:text-forest hover:underline"
-                    onClick={() => {
-                      setItems([]);
-                      setUnreadCount(0);
-                    }}
-                    type="button"
-                  >
-                    Xóa tất cả
-                  </button>
-                ) : null}
-                <button aria-label="Đóng thông báo" onClick={closeBell} type="button">
-                  <X aria-hidden="true" className="size-4 text-forest/45" />
-                </button>
-              </div>
+              <button aria-label="Đóng thông báo" onClick={closeBell} type="button">
+                <X aria-hidden="true" className="size-4 text-forest/45" />
+              </button>
             </div>
 
             {recurringDueCount > 0 ? (
@@ -178,6 +164,19 @@ export function NotificationBell({
                 items.map((item) => <NotificationItemRow categories={categories} item={item} key={item.id} members={members} onNavigate={closeBell} />)
               )}
             </div>
+
+            {items.length > 0 ? (
+              <button
+                className="mt-3 flex min-h-10 w-full items-center justify-center rounded-xl border border-forest/10 text-xs font-extrabold text-forest/55 hover:bg-mist/55 hover:text-forest"
+                onClick={() => {
+                  setItems([]);
+                  setUnreadCount(0);
+                }}
+                type="button"
+              >
+                Xóa tất cả
+              </button>
+            ) : null}
           </section>
         </>
       ) : null}
