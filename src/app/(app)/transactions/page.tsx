@@ -17,6 +17,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   const search = readParam(params.q) ?? "";
   const cursor = readParam(params.cursor);
   const openNew = readParam(params.new) === "1";
+  const highlightId = readParam(params.highlight) ?? null;
   const memberIds = parseMemberFilterParam(readParam(params.member));
   const supabase = await createServerSupabaseClient();
   const data = await getTransactionPageData(supabase, {
@@ -34,6 +35,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       currentMonth={currentMonth}
       currentUserId={membership.userId}
       hasMore={data.hasMore}
+      highlightId={highlightId}
       memberIds={memberIds}
       members={data.members}
       nextCursor={data.nextCursor}

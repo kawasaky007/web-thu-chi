@@ -48,9 +48,11 @@ export function NotificationBell({
           const rowActorId = typeof row.created_by === "string" ? row.created_by : rowUserId;
           const rowType = row.type;
           const rowCreatedAt = typeof row.created_at === "string" ? row.created_at : null;
+          const rowTransactionDate = typeof row.transaction_date === "string" ? row.transaction_date : rowCreatedAt;
           if (!rowActorId || rowActorId === currentUserId) return;
           if (rowType !== "income" && rowType !== "expense") return;
-          if (!rowCreatedAt || Date.now() - new Date(rowCreatedAt).getTime() > REALTIME_MAX_AGE_MS) return;
+          if (!rowCreatedAt || Date.now() - parsePostgresTimestamp(rowCreatedAt).getTime() > REALTIME_MAX_AGE_MS) return;
+          if (!rowTransactionDate) return;
           const item: NotificationTransactionItem = {
             id: String(row.id),
             type: rowType,
@@ -58,6 +60,7 @@ export function NotificationBell({
             categoryId: typeof row.category_id === "string" ? row.category_id : null,
             userId: rowUserId ?? "",
             actorId: rowActorId,
+            transactionDate: rowTransactionDate,
             createdAt: rowCreatedAt,
           };
           setItems((current) => [item, ...current].slice(0, 20));
@@ -136,9 +139,16 @@ export function NotificationBell({
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo" id={headingId}>Thông báo</p>
-              <button aria-label="Đóng thông báo" onClick={closeBell} type="button">
-                <X aria-hidden="true" className="size-4 text-forest/45" />
-              </button>
+              <div className="flex items-center gap-3">
+                {items.length > 0 ? (
+                  <button className="text-xs font-extrabold text-forest/55 hover:text-forest hover:underline" onClick={() => setItems([])} type="button">
+                    Xóa tất cả
+                  </button>
+                ) : null}
+                <button aria-label="Đóng thông báo" onClick={closeBell} type="button">
+                  <X aria-hidden="true" className="size-4 text-forest/45" />
+                </button>
+              </div>
             </div>
 
             {recurringDueCount > 0 ? (
@@ -158,7 +168,7 @@ export function NotificationBell({
               {items.length === 0 ? (
                 <p className="px-1 py-6 text-center text-sm font-medium text-ink/45">Chưa có giao dịch mới nào.</p>
               ) : (
-                items.map((item) => <NotificationItemRow categories={categories} item={item} key={item.id} members={members} />)
+                items.map((item) => <NotificationItemRow categories={categories} item={item} key={item.id} members={members} onNavigate={closeBell} />)
               )}
             </div>
           </section>
@@ -172,18 +182,25 @@ function NotificationItemRow({
   categories,
   item,
   members,
+  onNavigate,
 }: {
   categories: CategoryOption[];
   item: NotificationTransactionItem;
   members: MemberOption[];
+  onNavigate: () => void;
 }) {
   const category = categories.find((candidate) => candidate.id === item.categoryId);
   const member = members.find((candidate) => candidate.id === item.actorId);
   const amountLabel = new Intl.NumberFormat("vi-VN").format(Math.round(item.amount));
   const typeLabel = item.type === "income" ? "thu" : "chi";
+  const targetMonth = item.transactionDate.slice(0, 7);
 
   return (
-    <div className="flex items-start gap-3 rounded-xl px-2 py-2 text-sm">
+    <Link
+      className="flex items-start gap-3 rounded-xl px-2 py-2 text-sm transition hover:bg-mist/55"
+      href={`/transactions?month=${targetMonth}&highlight=${item.id}`}
+      onClick={onNavigate}
+    >
       <span
         className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full text-xs font-extrabold text-white"
         style={{ backgroundColor: category?.color ?? "#6B7280" }}
@@ -198,18 +215,39 @@ function NotificationItemRow({
           {category?.name ?? "Không rõ danh mục"} · {formatRelativeTime(item.createdAt)}
         </p>
       </div>
-    </div>
+    </Link>
   );
 }
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("vi", { numeric: "auto" });
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("vi", { numeric: "always" });
+const absoluteDateFormatter = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+const absoluteTimeFormatter = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 function formatRelativeTime(iso: string, now = new Date()) {
-  const diffMinutes = Math.round((new Date(iso).getTime() - now.getTime()) / 60000);
+  const target = parsePostgresTimestamp(iso);
+  const diffMinutes = Math.round((target.getTime() - now.getTime()) / 60000);
   if (diffMinutes > -1) return "Vừa xong";
   if (diffMinutes > -60) return relativeTimeFormatter.format(diffMinutes, "minute");
   const diffHours = Math.round(diffMinutes / 60);
   if (diffHours > -24) return relativeTimeFormatter.format(diffHours, "hour");
   const diffDays = Math.round(diffHours / 24);
-  return relativeTimeFormatter.format(diffDays, "day");
+  if (diffDays > -7) return relativeTimeFormatter.format(diffDays, "day");
+  return `${absoluteDateFormatter.format(target)} ${absoluteTimeFormatter.format(target)}`;
+}
+
+function parsePostgresTimestamp(value: string): Date {
+  // Postgres/PostgREST/Realtime có thể trả timestamptz dùng dấu cách thay vì
+  // "T" và/hoặc offset chỉ 2 chữ số ("+00" thay vì "+00:00", hoặc thiếu hẳn
+  // offset) — một số trình duyệt (Safari/WebKit) hiểu chuỗi thiếu offset rõ
+  // ràng là giờ local thay vì UTC, gây lệch múi giờ khi hiển thị.
+  let normalized = value.trim();
+  if (normalized.includes(" ") && !normalized.includes("T")) {
+    normalized = normalized.replace(" ", "T");
+  }
+  if (/[+-]\d{2}$/.test(normalized)) {
+    normalized = `${normalized}:00`;
+  } else if (!/[Zz]$/.test(normalized) && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
+    normalized = `${normalized}Z`;
+  }
+  return new Date(normalized);
 }

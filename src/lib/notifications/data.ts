@@ -10,6 +10,7 @@ export type NotificationTransactionItem = {
   categoryId: string | null;
   userId: string;
   actorId: string;
+  transactionDate: string;
   createdAt: string;
 };
 
@@ -43,7 +44,7 @@ export async function getUnreadTransactionNotifications(
       .gt("created_at", cursor.last_read_at),
     supabase
       .from("transactions")
-      .select("id, type, amount, category_id, user_id, created_by, created_at")
+      .select("id, type, amount, category_id, user_id, created_by, transaction_date, created_at")
       .eq("household_id", householdId)
       .neq("created_by", userId)
       .gt("created_at", cursor.last_read_at)
@@ -64,6 +65,7 @@ export async function getUnreadTransactionNotifications(
       categoryId: row.category_id,
       userId: row.user_id ?? "",
       actorId: row.created_by ?? row.user_id ?? "",
+      transactionDate: row.transaction_date,
       createdAt: row.created_at,
     } satisfies NotificationTransactionItem];
   });
