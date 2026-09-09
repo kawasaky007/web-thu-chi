@@ -81,6 +81,7 @@ export function TransactionsManager({
   hasMore,
   nextCursor,
   openNew = false,
+  highlightId = null,
 }: {
   transactions: TransactionView[];
   categories: CategoryOption[];
@@ -94,10 +95,19 @@ export function TransactionsManager({
   hasMore: boolean;
   nextCursor: string | null;
   openNew?: boolean;
+  highlightId?: string | null;
 }) {
   const [editor, setEditor] = useState<TransactionView | "new" | null>(openNew ? "new" : null);
-  const groups = useMemo(() => groupTransactions(transactions), [transactions]);
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const visibleTransactions = useMemo(
+    () => (removedIds.size === 0 ? transactions : transactions.filter((transaction) => !removedIds.has(transaction.id))),
+    [transactions, removedIds],
+  );
+  const groups = useMemo(() => groupTransactions(visibleTransactions), [visibleTransactions]);
   const filterState = { view, month: currentMonth, search, memberIds };
+  const markRemoved = useCallback((id: string) => {
+    setRemovedIds((current) => new Set(current).add(id));
+  }, []);
 
   return (
     <>
@@ -175,9 +185,11 @@ export function TransactionsManager({
                 <CardContent className="space-y-2">
                   {group.items.map((transaction) => (
                     <TransactionRow
+                      highlighted={transaction.id === highlightId}
                       key={transaction.id}
-                      transaction={transaction}
+                      onDeleted={markRemoved}
                       onEdit={() => setEditor(transaction)}
+                      transaction={transaction}
                     />
                   ))}
                 </CardContent>
@@ -343,10 +355,33 @@ function MemberFilterMenu({
   );
 }
 
-function TransactionRow({ transaction, onEdit }: { transaction: TransactionView; onEdit: () => void }) {
+function TransactionRow({
+  transaction,
+  onEdit,
+  onDeleted,
+  highlighted = false,
+}: {
+  transaction: TransactionView;
+  onEdit: () => void;
+  onDeleted: (id: string) => void;
+  highlighted?: boolean;
+}) {
   const Icon = CATEGORY_ICONS[transaction.categoryIcon] ?? CATEGORY_ICON_FALLBACK;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [showHighlight, setShowHighlight] = useState(highlighted);
+
+  useEffect(() => {
+    if (!highlighted) return;
+    rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = window.setTimeout(() => setShowHighlight(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [highlighted]);
+
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-forest/8 bg-white/58 p-3 transition hover:border-forest/18 hover:bg-white">
+    <div
+      className={`flex items-start gap-3 rounded-2xl border p-3 transition-colors duration-700 hover:border-forest/18 hover:bg-white ${showHighlight ? "border-yellow bg-yellow/25" : "border-forest/8 bg-white/58"}`}
+      ref={rowRef}
+    >
       <span className="grid size-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: `${transaction.categoryColor}20`, color: transaction.categoryColor }}>
         <Icon aria-hidden="true" className="size-5" />
       </span>
@@ -365,14 +400,14 @@ function TransactionRow({ transaction, onEdit }: { transaction: TransactionView;
           <Button aria-label={`Sửa giao dịch ${transaction.categoryName}`} onClick={onEdit} size="icon" variant="ghost">
             <Pencil aria-hidden="true" className="size-4" />
           </Button>
-          <DeleteTransactionButton transaction={transaction} />
+          <DeleteTransactionButton onDeleted={onDeleted} transaction={transaction} />
         </div>
       </div>
     </div>
   );
 }
 
-function DeleteTransactionButton({ transaction }: { transaction: TransactionView }) {
+function DeleteTransactionButton({ transaction, onDeleted }: { transaction: TransactionView; onDeleted: (id: string) => void }) {
   const router = useRouter();
   const { notify } = useToast();
   const [state, formAction, pending] = useActionState(deleteTransactionAction, initialTransactionActionState);
@@ -380,11 +415,12 @@ function DeleteTransactionButton({ transaction }: { transaction: TransactionView
   useEffect(() => {
     if (state.status === "success") {
       notify(state.message ?? "Đã xóa giao dịch.");
+      onDeleted(transaction.id);
       router.refresh();
     } else if (state.status === "error") {
       notify(state.message ?? "Không thể xóa giao dịch.", "error");
     }
-  }, [notify, router, state.message, state.status]);
+  }, [notify, onDeleted, router, state.message, state.status, transaction.id]);
 
   return (
     <ConfirmAction
