@@ -37,8 +37,11 @@ export function NotificationBell({
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
+    // Tên topic phải là duy nhất cho mỗi lần subscribe: React StrictMode ở dev
+    // mount hai lần, và removeChannel() của lần đầu sẽ gỡ luôn topic trùng tên
+    // của lần thứ hai, khiến không còn subscription nào sống.
     const channel = supabase
-      .channel(`household-transactions-${householdId}`)
+      .channel(`household-transactions-${householdId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "transactions", filter: `household_id=eq.${householdId}` },
@@ -67,10 +70,14 @@ export function NotificationBell({
           setUnreadCount((current) => current + 1);
         },
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        // CLOSED là trạng thái bình thường khi cleanup, không phải lỗi.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error(`Realtime thông báo không kết nối được (${status}):`, error);
+        }
+      });
 
     return () => {
-      channel.unsubscribe().catch(() => {});
       supabase.removeChannel(channel).catch(() => {});
     };
   }, [currentUserId, householdId]);

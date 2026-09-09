@@ -8,7 +8,7 @@ vi.mock("@/app/(app)/profile/actions", () => ({
   markNotificationsReadAction: markNotificationsReadActionMock,
 }));
 
-const { onMock, subscribeMock, unsubscribeMock, removeChannelMock, createBrowserSupabaseClientMock } = vi.hoisted(() => {
+const { onMock, subscribeMock, unsubscribeMock, removeChannelMock, channelMock, createBrowserSupabaseClientMock } = vi.hoisted(() => {
   const channel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn>; unsubscribe: ReturnType<typeof vi.fn> } = {
     on: vi.fn(),
     subscribe: vi.fn(),
@@ -18,11 +18,12 @@ const { onMock, subscribeMock, unsubscribeMock, removeChannelMock, createBrowser
   channel.subscribe.mockReturnValue(channel);
   channel.unsubscribe.mockResolvedValue("ok");
   const removeChannelMock = vi.fn().mockResolvedValue("ok");
+  const channelMock = vi.fn<(topic: string) => typeof channel>(() => channel);
   const createBrowserSupabaseClientMock = vi.fn(() => ({
-    channel: vi.fn(() => channel),
+    channel: channelMock,
     removeChannel: removeChannelMock,
   }));
-  return { onMock: channel.on, subscribeMock: channel.subscribe, unsubscribeMock: channel.unsubscribe, removeChannelMock, createBrowserSupabaseClientMock };
+  return { onMock: channel.on, subscribeMock: channel.subscribe, unsubscribeMock: channel.unsubscribe, removeChannelMock, channelMock, createBrowserSupabaseClientMock };
 });
 vi.mock("@/lib/supabase/client", () => ({
   createBrowserSupabaseClient: createBrowserSupabaseClientMock,
@@ -207,7 +208,18 @@ describe("NotificationBell", () => {
 
     unmount();
 
-    expect(unsubscribeMock).toHaveBeenCalledOnce();
+    // removeChannel() tự unsubscribe bên trong; gọi thêm unsubscribe() rồi mới
+    // removeChannel() từng làm channel trùng tên của lần mount sau bị gỡ theo.
     expect(removeChannelMock).toHaveBeenCalledOnce();
+  });
+
+  it("dùng tên topic Realtime khác nhau cho mỗi lần subscribe", () => {
+    renderBell();
+    renderBell();
+
+    const topics = channelMock.mock.calls.map(([topic]) => topic as string);
+    expect(topics).toHaveLength(2);
+    expect(new Set(topics).size).toBe(2);
+    expect(topics.every((topic) => topic.startsWith("household-transactions-household-1-"))).toBe(true);
   });
 });
