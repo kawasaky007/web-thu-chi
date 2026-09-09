@@ -1,6 +1,6 @@
 "use client";
 
-import { Apple, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
 import { AuthFeedback } from "@/components/auth/auth-feedback";
@@ -33,8 +33,10 @@ export function OAuthButtons({ nextPath }: { nextPath: string }) {
       });
 
       if (!error) return;
-    } catch {
-      // Hiển thị lỗi thân thiện nếu provider hoặc mạng không phản hồi.
+      // Nuốt lỗi hoàn toàn khiến provider chưa bật trông giống hệt lỗi mạng.
+      console.error(`Đăng nhập ${provider} thất bại:`, error);
+    } catch (unexpectedError) {
+      console.error(`Đăng nhập ${provider} lỗi ngoài dự kiến:`, unexpectedError);
     }
 
     setPendingProvider(null);
@@ -51,20 +53,15 @@ export function OAuthButtons({ nextPath }: { nextPath: string }) {
 
       {errorMessage ? <AuthFeedback message={errorMessage} /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* Nút Apple chưa hiển thị: Sign in with Apple cần Apple Developer Program
+          và client secret dạng JWT phải gia hạn định kỳ, sẽ bật ở đợt sau. */}
+      <div className="grid gap-3">
         <OAuthButton
           disabled={pendingProvider !== null}
           icon={<GoogleMark />}
           label="Google"
           loading={pendingProvider === "google"}
           onClick={() => signIn("google")}
-        />
-        <OAuthButton
-          disabled={pendingProvider !== null}
-          icon={<Apple aria-hidden="true" className="size-4" />}
-          label="Apple"
-          loading={pendingProvider === "apple"}
-          onClick={() => signIn("apple")}
         />
       </div>
     </div>

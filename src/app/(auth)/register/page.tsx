@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { RegisterForm } from "@/components/auth/register-form";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -14,6 +15,7 @@ export default function RegisterPage() {
         </p>
 
         <RegisterForm />
+        <OAuthButtons nextPath="/" />
 
         <p className="mt-6 text-center text-sm font-medium text-ink/52">
           Đã có tài khoản?{" "}

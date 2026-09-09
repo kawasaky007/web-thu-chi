@@ -31,13 +31,25 @@ describe("OAuthButtons", () => {
     });
   });
 
-  it("bắt đầu đăng nhập Apple và hiển thị lỗi provider", async () => {
-    const signInWithOAuth = vi.fn().mockResolvedValue({ error: new Error("provider disabled") });
+  it("hiển thị lỗi và ghi log chi tiết khi provider chưa được bật", async () => {
+    const providerError = new Error("provider is not enabled");
+    const signInWithOAuth = vi.fn().mockResolvedValue({ error: providerError });
     createClient.mockReturnValue({ auth: { signInWithOAuth } } as never);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<OAuthButtons nextPath="/" />);
-    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập bằng Apple" }));
+    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập bằng Google" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Không thể đăng nhập bằng Apple");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Không thể đăng nhập bằng Google");
+    expect(consoleError).toHaveBeenCalledWith("Đăng nhập google thất bại:", providerError);
+    consoleError.mockRestore();
+  });
+
+  it("chưa hiển thị nút Apple vì provider chưa được cấu hình", () => {
+    createClient.mockReturnValue({ auth: { signInWithOAuth: vi.fn() } } as never);
+
+    render(<OAuthButtons nextPath="/" />);
+
+    expect(screen.queryByRole("button", { name: "Đăng nhập bằng Apple" })).not.toBeInTheDocument();
   });
 });
