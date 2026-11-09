@@ -28,7 +28,7 @@ function makeFile(name = "receipt.jpg", sizeBytes = 1000) {
 }
 
 // ReceiptScanButton reports its error message up via onError instead of
-// rendering it internally (see transaction-manager.tsx, where the real error
+// rendering it internally (see transaction-form.tsx, where the real error
 // paragraph is rendered full-width next to receiptAmountMissing). This tiny
 // harness plays the role of that parent so existing assertions that look for
 // the error text in the DOM keep working unchanged.

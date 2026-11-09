@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TransactionForm, TransactionsManager } from "@/components/transactions/transaction-manager";
+import { TransactionForm } from "@/components/transactions/transaction-form";
+import { TransactionsManager } from "@/components/transactions/transaction-manager";
 import { ToastProvider } from "@/components/ui/toast";
 import { readTransactionDraft, writeTransactionDraft } from "@/lib/pwa/transaction-draft";
+import { EMPTY_TRANSACTION_FILTER } from "@/lib/transactions/filters";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -149,33 +151,40 @@ describe("TransactionForm offline draft", () => {
     render(
       <ToastProvider>
         <TransactionsManager
-          categories={categories}
-          currentMonth="2026-08"
+          allData={null}
           currentUserId="user-1"
-          hasMore={false}
-          memberIds={[]}
-          members={members}
-          nextCursor={null}
-          search=""
-          summary={{ count: 1, expense: 69999, income: 0 }}
-          transactions={[{
-            id: "transaction-1",
-            householdId: "household-1",
-            userId: "user-1",
-            categoryId: "food",
-            type: "expense",
-            amount: 69999,
-            title: "Ăn uống",
-            note: null,
-            transactionDate: "2026-08-03T00:00:00",
-            createdAt: "2026-08-03T00:00:00",
-            categoryName: "Ăn uống",
-            categoryColor: "#087a5b",
-            categoryIcon: "food",
-            memberName: "Bạn",
-            memberEmail: "an@example.com",
-            canDelete: true,
-          }]}
+          highlightId={null}
+          initialFilter={EMPTY_TRANSACTION_FILTER}
+          initialPanelType="expense"
+          month="2026-08"
+          monthData={{
+            categories,
+            members,
+            current: {
+              rows: [{
+                id: "transaction-1",
+                householdId: "household-1",
+                userId: "user-1",
+                categoryId: "food",
+                type: "expense",
+                amount: 69999,
+                title: "Ăn uống",
+                note: null,
+                transactionDate: "2026-08-03T00:00:00",
+                createdAt: "2026-08-03T00:00:00",
+                categoryName: "Ăn uống",
+                categoryColor: "#087a5b",
+                categoryIcon: "food",
+                memberName: "Bạn",
+                memberEmail: "an@example.com",
+                canDelete: true,
+              }],
+              truncated: false,
+            },
+            previous: null,
+            budgetLimits: null,
+          }}
+          openNew={false}
           view="month"
         />
       </ToastProvider>,

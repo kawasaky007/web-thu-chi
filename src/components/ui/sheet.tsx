@@ -12,6 +12,7 @@ type SheetProps = {
   title: string;
   description?: string;
   closeLabel?: string;
+  eyebrow?: string;
   children: ReactNode;
   className?: string;
 };
@@ -22,6 +23,7 @@ export function Sheet({
   title,
   description,
   closeLabel = "Đóng",
+  eyebrow = "Nhập nhanh",
   children,
   className,
 }: SheetProps) {
@@ -98,7 +100,7 @@ export function Sheet({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo">
-              Nhập nhanh
+              {eyebrow}
             </p>
             <h2 id={titleId} className="mt-1 text-2xl font-extrabold tracking-[-0.04em]">
               {title}

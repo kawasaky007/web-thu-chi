@@ -30,3 +30,16 @@ describe("Sheet accessibility", () => {
     await waitFor(() => expect(opener).toHaveFocus());
   });
 });
+
+describe("Sheet eyebrow", () => {
+  it("mặc định là Nhập nhanh", () => {
+    render(<Sheet onClose={() => {}} open title="Tiêu đề"><p>x</p></Sheet>);
+    expect(screen.getByText("Nhập nhanh")).toBeInTheDocument();
+  });
+
+  it("dùng eyebrow được truyền vào", () => {
+    render(<Sheet eyebrow="Danh mục" onClose={() => {}} open title="Tiêu đề"><p>x</p></Sheet>);
+    expect(screen.getByText("Danh mục")).toBeInTheDocument();
+    expect(screen.queryByText("Nhập nhanh")).not.toBeInTheDocument();
+  });
+});
