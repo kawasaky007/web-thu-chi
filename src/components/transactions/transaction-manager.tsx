@@ -1,113 +1,249 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  FileClock,
-  Pencil,
-  Search,
-  Trash2,
-  TriangleAlert,
-  UsersRound,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-import {
-  createTransactionAction,
-  deleteTransactionAction,
-  updateTransactionAction,
-} from "@/app/(app)/transactions/actions";
-import { AuthFeedback } from "@/components/auth/auth-feedback";
 import { PageHeader } from "@/components/app/page-header";
-import { useOnlineStatus } from "@/components/pwa/use-online-status";
+import { TransactionAnalyticsPanel } from "@/components/transactions/transaction-analytics-panel";
+import { TransactionFilterBar } from "@/components/transactions/transaction-filter-bar";
+import { TransactionForm } from "@/components/transactions/transaction-form";
+import { TransactionList } from "@/components/transactions/transaction-list";
+import { TransactionSummaryStrip } from "@/components/transactions/transaction-summary-strip";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ConfirmAction } from "@/components/ui/confirm-dialog";
-import { Input } from "@/components/ui/input";
 import { LinkPendingOverlay } from "@/components/ui/link-pending-overlay";
-import { MonthPicker } from "@/components/ui/month-picker";
-import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/status-state";
-import { Sheet } from "@/components/ui/sheet";
-import { useToast } from "@/components/ui/toast";
-import { categoryTypeLabelLowercase, type CategoryType } from "@/lib/categories/constants";
-import { CATEGORY_ICONS, CATEGORY_ICON_FALLBACK } from "@/lib/categories/icons";
-import {
-  evaluateAmountExpression,
-  formatAmountExpressionInput,
-  formatAmountValue,
-} from "@/lib/transactions/amount-calculator";
-import { initialTransactionActionState } from "@/lib/transactions/action-state";
-import {
-  buildTransactionsHref,
-  toggleMemberFilter,
-  type TransactionsFilterState,
-} from "@/lib/transactions/member-filter";
-import {
-  clearTransactionDraft,
-  readTransactionDraft,
-  writeTransactionDraft,
-} from "@/lib/pwa/transaction-draft";
-import {
-  formatVietnameseDate,
-  shiftMonth,
-  type CategoryOption,
-  type MemberOption,
-  type TransactionSummary,
-  type TransactionView,
+import { buildCategoryChipOrder, buildTransactionAnalytics } from "@/lib/transactions/analytics";
+import type {
+  CategoryOption,
+  MemberOption,
+  TransactionsAllData,
+  TransactionsMonthData,
+  TransactionView,
 } from "@/lib/transactions/data";
-import { ReceiptScanButton } from "@/components/transactions/receipt-scan-button";
-import type { ParsedReceipt } from "@/lib/receipt-scan/parser";
+import {
+  applyTransactionFilters,
+  EMPTY_TRANSACTION_FILTER,
+  isTransactionFilterEmpty,
+  serializeTransactionFilter,
+  toggleFilterId,
+  type TransactionFilter,
+} from "@/lib/transactions/filters";
 
-const COLLAPSED_CATEGORY_LIMIT = 9;
+type PanelType = "income" | "expense";
+
+// Hằng dùng chung thay vì `?? []` tại chỗ: mảng mới mỗi lần render sẽ phá dependency của useMemo.
+const NO_ROWS: TransactionView[] = [];
+const NO_CATEGORIES: CategoryOption[] = [];
+const NO_MEMBERS: MemberOption[] = [];
+
+// Các param do filter sở hữu; mọi param khác (highlight, new, view) được giữ nguyên khi chiếu URL.
+const FILTER_PARAM_KEYS = ["q", "category", "member"] as const;
+
+// Gõ phím bắn onFilterChange cho từng ký tự; WebKit chỉ cho 100 lần replaceState / 30 giây rồi ném
+// SecurityError, nên chỉ chiếu URL sau khi người dùng ngừng gõ. Chip/thành viên/panel là thao tác
+// rời rạc và thưa nên vẫn chiếu ngay.
+const SEARCH_URL_SYNC_DELAY = 300;
+
+// Chỉ ồn ào một lần: throttle đã chạm trần thì mọi lần ghi sau đó cũng ném, log mỗi lần sẽ lấp console.
+let replaceStateFailureLogged = false;
+
+// View tháng gộp dấu (lọc ở client), view "Tất cả" dùng ilike của Postgres nên KHÔNG gộp — chênh lệch
+// này có chủ ý và chỉ bỏ được bằng extension unaccent, tức là một migration mà đợt này không ship.
+// Việc còn lại là không im lặng: tìm thấy bằng "an uong" rồi bấm "Tất cả" mà ra 0 dòng thì người dùng
+// đọc thành "không còn gì cũ hơn", nên phải nói ra lý do ngay tại chỗ trống.
+function diacriticHint(search: string) {
+  return `Ở mục "Tất cả", tìm kiếm phân biệt dấu: thử gõ "${search}" có dấu đầy đủ.`;
+}
+
+// Link trông như nút (view "Tất cả" điều hướng bằng href nên không dùng được <Button>).
+const NAV_BUTTON_CLASS =
+  "relative mx-auto flex min-h-12 w-fit items-center rounded-2xl border border-forest/12 bg-paper-raised px-5 text-sm font-extrabold text-forest hover:bg-mist";
+
+type TransactionsManagerProps = {
+  view: "month" | "all";
+  month: string;
+  currentUserId: string;
+  highlightId: string | null;
+  initialFilter: TransactionFilter;
+  initialPanelType: PanelType;
+  monthData: TransactionsMonthData | null;
+  allData: TransactionsAllData | null;
+  openNew: boolean;
+};
 
 export function TransactionsManager({
-  transactions,
-  categories,
-  members,
-  memberIds,
-  summary,
-  currentMonth,
-  currentUserId,
   view,
-  search,
-  hasMore,
-  nextCursor,
-  openNew = false,
-  highlightId = null,
-}: {
-  transactions: TransactionView[];
-  categories: CategoryOption[];
-  members: MemberOption[];
-  memberIds: string[];
-  summary: TransactionSummary;
-  currentMonth: string;
-  currentUserId: string;
-  view: "month" | "all";
-  search: string;
-  hasMore: boolean;
-  nextCursor: string | null;
-  openNew?: boolean;
-  highlightId?: string | null;
-}) {
+  month,
+  currentUserId,
+  highlightId,
+  initialFilter,
+  initialPanelType,
+  monthData,
+  allData,
+  openNew,
+}: TransactionsManagerProps) {
+  // Ở view tháng, chân lý của filter nằm ở state này; URL chỉ là bản chiếu của nó (effect bên dưới).
+  const [monthFilter, setMonthFilter] = useState(initialFilter);
+  const [panelType, setPanelType] = useState(initialPanelType);
   const [editor, setEditor] = useState<TransactionView | "new" | null>(openNew ? "new" : null);
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const visibleTransactions = useMemo(
-    () => (removedIds.size === 0 ? transactions : transactions.filter((transaction) => !removedIds.has(transaction.id))),
-    [transactions, removedIds],
+
+  // View "Tất cả" đọc filter thẳng từ server: không giữ bản sao state nên back/forward không bao giờ
+  // cho ra chip lệch với dữ liệu đang hiển thị.
+  const filter = view === "month" ? monthFilter : initialFilter;
+
+  const categories = monthData?.categories ?? allData?.categories ?? NO_CATEGORIES;
+  const members = monthData?.members ?? allData?.members ?? NO_MEMBERS;
+  const sourceRows = monthData?.current.rows ?? allData?.rows ?? NO_ROWS;
+
+  // loadedRows = cả tháng (view tháng) hoặc đúng trang hiện tại (view "Tất cả").
+  // Dòng vừa xoá bị loại khỏi MỌI dẫn xuất (chip, dải tổng, panel, danh sách) để các con số không
+  // lệch nhau trong lúc chờ router.refresh() trả dữ liệu mới.
+  const loadedRows = useMemo(
+    () => (removedIds.size === 0 ? sourceRows : sourceRows.filter((row) => !removedIds.has(row.id))),
+    [sourceRows, removedIds],
   );
-  const groups = useMemo(() => groupTransactions(visibleTransactions), [visibleTransactions]);
-  const filterState = { view, month: currentMonth, search, memberIds };
+  // Chip sắp theo tiền của cả tháng, chưa lọc: bấm chính nó không được làm thứ tự nhảy.
+  const chipOrder = useMemo(() => buildCategoryChipOrder(categories, loadedRows), [categories, loadedRows]);
+  // View "Tất cả" đã được DB lọc rồi; lọc lại ở client sẽ cắt mất kết quả search theo cột khác.
+  const visibleRows = useMemo(
+    () => (view === "month" ? applyTransactionFilters(loadedRows, filter) : loadedRows),
+    [view, loadedRows, filter],
+  );
+  const analytics = useMemo(() => {
+    if (view !== "month" || !monthData) return null;
+    return buildTransactionAnalytics({
+      current: visibleRows,
+      // Cảnh báo ngân sách so với hạn mức của cả household nên cần rows chưa lọc.
+      currentAll: loadedRows,
+      previous: monthData.previous ? applyTransactionFilters(monthData.previous.rows, filter) : null,
+      previousTruncated: monthData.previous?.truncated ?? false,
+      filter,
+      categories,
+      members,
+      budgetLimits: monthData.budgetLimits,
+      panelType,
+    });
+  }, [view, monthData, visibleRows, loadedRows, filter, categories, members, panelType]);
+
+  const hrefFor = useCallback(
+    (next: { view?: "month" | "all"; month?: string; filter?: TransactionFilter; cursor?: string }) => {
+      const nextView = next.view ?? view;
+      const params = new URLSearchParams();
+      if (nextView === "all") params.set("view", "all");
+      else params.set("month", next.month ?? month);
+      for (const [key, value] of serializeTransactionFilter(next.filter ?? filter)) params.set(key, value);
+      if (nextView === "month" && panelType === "income") params.set("panel", "income");
+      if (next.cursor) params.set("cursor", next.cursor);
+      return `/transactions?${params.toString()}`;
+    },
+    [view, month, filter, panelType],
+  );
+
+  // replaceState đổi thanh địa chỉ mà KHÔNG chạy lại server component: link vẫn share/refresh được
+  // trong khi filter phản hồi tức thì. Dùng router.push/replace ở đây là mất đúng điều đó.
+  // View "Tất cả" lọc ở DB nên đổi filter bên đó là điều hướng thật, không đi qua hàm này.
+  const syncUrl = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("month", month);
+    const filterParams = serializeTransactionFilter(filter);
+    for (const key of FILTER_PARAM_KEYS) {
+      const value = filterParams.get(key);
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    if (panelType === "income") params.set("panel", "income");
+    else params.delete("panel");
+    try {
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    } catch (error) {
+      // URL chỉ là bản chiếu của state: mất một lần ghi thì thanh địa chỉ cũ đi, còn để lỗi thoát ra
+      // khỏi effect là cả màn hình bị thay bằng error.tsx và phải tải lại hai tháng dữ liệu.
+      if (!replaceStateFailureLogged) {
+        replaceStateFailureLogged = true;
+        console.error(
+          "[transactions] Không chiếu được filter lên URL (khả năng cao do WebKit chặn replaceState ở 100 lần/30 giây)",
+          error,
+        );
+      }
+    }
+  }, [month, filter, panelType]);
+
+  // Chỉ nhánh search đi qua debounce; mọi thay đổi khác (chip, thành viên, panel, đổi tháng) chiếu ngay.
+  const lastSyncedSearch = useRef(filter.search);
+  useEffect(() => {
+    if (view !== "month") return;
+    const searchChanged = lastSyncedSearch.current !== filter.search;
+    lastSyncedSearch.current = filter.search;
+    if (!searchChanged) {
+      syncUrl();
+      return;
+    }
+    const timer = window.setTimeout(syncUrl, SEARCH_URL_SYNC_DELAY);
+    return () => window.clearTimeout(timer);
+  }, [view, filter.search, syncUrl]);
+
+  // Chỉ view tháng đi qua đây: view "Tất cả" đổi filter bằng <Link> (hrefForFilter), không state.
+  const applyFilter = useCallback((next: TransactionFilter) => setMonthFilter(next), []);
+
+  const toggleCategory = useCallback(
+    (categoryId: string) =>
+      setMonthFilter({ ...filter, categoryIds: toggleFilterId(filter.categoryIds, categoryId) }),
+    [filter],
+  );
+
   const markRemoved = useCallback((id: string) => {
     setRemovedIds((current) => new Set(current).add(id));
   }, []);
+
+  const filtering = !isTransactionFilterEmpty(filter);
+  const listBlock = (
+    <div className="min-w-0 space-y-4">
+      {visibleRows.length === 0 ? (
+        <EmptyState
+          action={
+            filtering ? (
+              view === "all" ? (
+                // View "Tất cả": xoá filter cũng là một lần điều hướng, nên cùng hình dạng Link + overlay.
+                <Link className={NAV_BUTTON_CLASS} href={hrefFor({ filter: EMPTY_TRANSACTION_FILTER })}>
+                  Xoá bộ lọc
+                  <LinkPendingOverlay />
+                </Link>
+              ) : (
+                <Button onClick={() => applyFilter(EMPTY_TRANSACTION_FILTER)}>Xoá bộ lọc</Button>
+              )
+            ) : (
+              <Button onClick={() => setEditor("new")}>Thêm giao dịch đầu tiên</Button>
+            )
+          }
+          description={
+            filtering
+              ? `Thử danh mục, thành viên hoặc từ khoá khác, hoặc xoá bộ lọc đang áp dụng.${
+                  view === "all" && filter.search ? ` ${diacriticHint(filter.search)}` : ""
+                }`
+              : "Ghi lại khoản thu chi đầu tiên để bắt đầu theo dõi dòng tiền."
+          }
+          title={filtering ? "Không tìm thấy giao dịch" : "Chưa có giao dịch"}
+        />
+      ) : (
+        <TransactionList
+          highlightId={highlightId}
+          onDeleted={markRemoved}
+          onEdit={setEditor}
+          rows={visibleRows}
+          // Lọc đúng một người thì mọi dòng đều lặp lại tên người đó.
+          showMemberName={filter.memberIds.length !== 1}
+        />
+      )}
+      {/* Chỉ view "Tất cả" có phân trang; view tháng tải cả tháng nên không còn gì để tải thêm. */}
+      {view === "all" && allData?.hasMore && allData.nextCursor ? (
+        <Link className={NAV_BUTTON_CLASS} href={hrefFor({ cursor: allData.nextCursor })}>
+          Tải thêm giao dịch
+          <LinkPendingOverlay />
+        </Link>
+      ) : null}
+    </div>
+  );
 
   return (
     <>
@@ -122,105 +258,39 @@ export function TransactionsManager({
         description="Theo dõi từng khoản thu chi theo ngày, danh mục và thành viên household."
       />
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-        <form action="/transactions" className="flex gap-2" method="get">
-          {view === "all" ? <input name="view" type="hidden" value="all" /> : <input name="month" type="hidden" value={currentMonth} />}
-          <Input
-            defaultValue={search}
-            leading={<Search aria-hidden="true" className="size-4" />}
-            name="q"
-            placeholder="Tìm theo ghi chú, danh mục, thành viên"
-          />
-          <Button aria-label="Tìm kiếm" className="mt-auto size-12 shrink-0 p-0" size="icon" type="submit">
-            <Search aria-hidden="true" className="size-5" />
-          </Button>
-        </form>
-        <div className="flex items-center gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-1.5">
-          <Link
-            aria-label="Giao dịch theo tháng"
-            className={`relative grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "month" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
-            href={buildTransactionsHref({ ...filterState, view: "month" })}
-          >
-            Theo tháng
-            <LinkPendingOverlay />
-          </Link>
-          <Link
-            aria-label="Tất cả giao dịch"
-            className={`relative grid min-h-10 flex-1 place-items-center rounded-xl px-3 text-sm font-extrabold sm:flex-none ${view === "all" ? "bg-forest text-paper" : "text-ink/48 hover:bg-mist"}`}
-            href={buildTransactionsHref({ ...filterState, view: "all" })}
-          >
-            Tất cả
-            <LinkPendingOverlay />
-          </Link>
-        </div>
-      </div>
+      <TransactionFilterBar
+        chipOrder={chipOrder}
+        filter={filter}
+        hrefForFilter={view === "all" ? (next) => hrefFor({ filter: next }) : undefined}
+        hrefForMonth={(value) => hrefFor({ month: value, view: "month" })}
+        hrefForView={(value) => hrefFor({ view: value })}
+        members={members}
+        month={month}
+        onFilterChange={applyFilter}
+        view={view}
+      />
 
-      {members.length > 0 ? (
-        <div className="mt-3">
-          <MemberFilterMenu filterState={filterState} members={members} />
-        </div>
-      ) : null}
-
-      {view === "month" ? <MonthControls filterState={filterState} /> : null}
-
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_20rem]">
-        <div className="min-w-0 space-y-4">
-          {groups.length === 0 ? (
-            <EmptyState
-              action={<Button onClick={() => setEditor("new")}>Thêm giao dịch đầu tiên</Button>}
-              description={
-                search || memberIds.length > 0
-                  ? "Thử từ khóa hoặc thành viên khác, hoặc xóa bộ lọc đang áp dụng."
-                  : "Ghi lại khoản thu chi đầu tiên để bắt đầu theo dõi dòng tiền."
-              }
-              title={search || memberIds.length > 0 ? "Không tìm thấy giao dịch" : "Chưa có giao dịch"}
+      {analytics ? (
+        // Thứ tự DOM = thứ tự nhìn trên mobile (dải tổng → panel → danh sách); desktop chỉ đổi cột
+        // bằng grid, không dùng CSS order, để thứ tự đọc của screen reader khớp thứ tự nhìn.
+        <div className="mt-4 grid items-start gap-4 xl:grid-cols-[1fr_22rem]">
+          <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+            <TransactionSummaryStrip analytics={analytics} truncated={monthData?.current.truncated ?? false} />
+          </div>
+          <div className="min-w-0 xl:sticky xl:top-6 xl:col-start-2 xl:row-span-2 xl:row-start-1">
+            <TransactionAnalyticsPanel
+              analytics={analytics}
+              onPanelTypeChange={setPanelType}
+              onToggleCategory={toggleCategory}
+              panelType={panelType}
+              selectedCategoryIds={filter.categoryIds}
             />
-          ) : (
-            groups.map((group) => (
-              <Card key={group.date}>
-                <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-                  <h2 className="text-sm font-extrabold text-ink/68">{group.label}</h2>
-                  <span className={`text-sm font-extrabold ${group.total >= 0 ? "text-income" : "text-expense"}`}>{formatSignedMoney(group.total)}</span>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {group.items.map((transaction) => (
-                    <TransactionRow
-                      highlighted={transaction.id === highlightId}
-                      key={transaction.id}
-                      onDeleted={markRemoved}
-                      onEdit={() => setEditor(transaction)}
-                      transaction={transaction}
-                    />
-                  ))}
-                </CardContent>
-              </Card>
-            ))
-          )}
-          {hasMore && nextCursor ? (
-            <Link
-              className="relative mx-auto flex min-h-12 w-fit items-center rounded-2xl border border-forest/12 bg-paper-raised px-5 text-sm font-extrabold text-forest hover:bg-mist"
-              href={`${buildTransactionsHref(filterState)}&cursor=${encodeURIComponent(nextCursor)}`}
-            >
-              Tải thêm giao dịch
-              <LinkPendingOverlay />
-            </Link>
-          ) : null}
+          </div>
+          <div className="min-w-0 xl:col-start-1 xl:row-start-2">{listBlock}</div>
         </div>
-
-        <Card className="h-fit">
-          <CardHeader>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-indigo">Tóm tắt {view === "month" ? "tháng" : "dữ liệu"}</p>
-            <h2 className="mt-1 text-xl font-extrabold">{summary.count} giao dịch</h2>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <SummaryLine label="Thu nhập" value={formatMoney(summary.income)} tone="income" />
-            <SummaryLine label="Chi tiêu" value={formatMoney(summary.expense)} tone="expense" />
-            <div className="border-t border-forest/10 pt-3">
-              <SummaryLine label="Chênh lệch" value={formatSignedMoney(summary.income - summary.expense)} tone={summary.income - summary.expense >= 0 ? "income" : "expense"} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      ) : (
+        <div className="mt-4">{listBlock}</div>
+      )}
 
       {editor ? (
         <TransactionForm
@@ -233,647 +303,4 @@ export function TransactionsManager({
       ) : null}
     </>
   );
-}
-
-function MonthControls({ filterState }: { filterState: TransactionsFilterState }) {
-  const { month } = filterState;
-  return (
-    <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl border border-forest/10 bg-paper-raised/65 p-2">
-      <Link aria-label="Tháng trước" className="relative grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, -1) })}>
-        <ChevronLeft aria-hidden="true" className="size-5" />
-        <LinkPendingOverlay />
-      </Link>
-      <MonthPicker hrefForMonth={(value) => buildTransactionsHref({ ...filterState, month: value })} month={month} />
-      <Link aria-label="Tháng sau" className="relative grid size-11 place-items-center rounded-xl text-forest hover:bg-mist" href={buildTransactionsHref({ ...filterState, month: shiftMonth(month, 1) })}>
-        <ChevronRight aria-hidden="true" className="size-5" />
-        <LinkPendingOverlay />
-      </Link>
-    </div>
-  );
-}
-
-function MemberFilterMenu({
-  filterState,
-  members,
-}: {
-  filterState: TransactionsFilterState;
-  members: MemberOption[];
-}) {
-  const { memberIds } = filterState;
-  const [open, setOpen] = useState(false);
-  const dialogId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
-
-  const closeMenu = () => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  return (
-    <div className="relative inline-block">
-      <button
-        aria-controls={open ? dialogId : undefined}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-forest/10 bg-paper px-3 text-sm font-extrabold text-forest shadow-[0_7px_20px_rgba(31,61,43,0.06)] transition hover:border-forest/20 hover:bg-white"
-        onClick={() => setOpen((current) => !current)}
-        ref={triggerRef}
-        type="button"
-      >
-        <UsersRound aria-hidden="true" className="size-4 text-indigo" />
-        Thành viên{memberIds.length > 0 ? ` (${memberIds.length})` : ""}
-        <ChevronDown aria-hidden="true" className={`size-4 text-forest/45 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open ? (
-        <>
-          <button
-            aria-hidden="true"
-            className="fixed inset-0 z-40 cursor-default bg-ink/38 backdrop-blur-[2px] sm:bg-transparent sm:backdrop-blur-none"
-            onClick={closeMenu}
-            tabIndex={-1}
-            type="button"
-          />
-          <section
-            aria-label="Lọc theo thành viên"
-            className="month-picker-enter fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 rounded-[1.75rem] border border-white/60 bg-paper-raised p-4 shadow-[0_28px_90px_rgba(14,14,14,0.24)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-[calc(100%+0.5rem)] sm:w-64 sm:rounded-[1.5rem]"
-            id={dialogId}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo">Lọc theo thành viên</p>
-              {memberIds.length > 0 ? (
-                <Link
-                  className="relative rounded px-1 text-xs font-extrabold text-forest hover:underline"
-                  href={buildTransactionsHref({ ...filterState, memberIds: [] })}
-                  onClick={closeMenu}
-                >
-                  Bỏ lọc
-                  <LinkPendingOverlay />
-                </Link>
-              ) : null}
-            </div>
-            <div className="mt-3 space-y-1">
-              {members.map((member) => {
-                const checked = memberIds.includes(member.id);
-                return (
-                  <Link
-                    aria-pressed={checked}
-                    className={`relative flex min-h-11 items-center gap-3 rounded-xl px-2 text-sm font-bold transition ${checked ? "bg-mint-soft text-income" : "text-ink/68 hover:bg-mist/70"}`}
-                    href={buildTransactionsHref({ ...filterState, memberIds: toggleMemberFilter(memberIds, member.id) })}
-                    key={member.id}
-                    onClick={closeMenu}
-                  >
-                    <span
-                      className={`grid size-5 shrink-0 place-items-center rounded-md border-2 ${checked ? "border-income bg-income text-white" : "border-forest/24"}`}
-                    >
-                      {checked ? <Check aria-hidden="true" className="size-3.5" strokeWidth={3} /> : null}
-                    </span>
-                    <span className="truncate">{member.name}</span>
-                    <LinkPendingOverlay />
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function TransactionRow({
-  transaction,
-  onEdit,
-  onDeleted,
-  highlighted = false,
-}: {
-  transaction: TransactionView;
-  onEdit: () => void;
-  onDeleted: (id: string) => void;
-  highlighted?: boolean;
-}) {
-  const Icon = CATEGORY_ICONS[transaction.categoryIcon] ?? CATEGORY_ICON_FALLBACK;
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [showHighlight, setShowHighlight] = useState(highlighted);
-
-  useEffect(() => {
-    if (!highlighted) return;
-    rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    const timer = window.setTimeout(() => setShowHighlight(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [highlighted]);
-
-  return (
-    <div
-      className={`flex items-start gap-3 rounded-2xl border p-3 transition-colors duration-700 hover:border-forest/18 hover:bg-white ${showHighlight ? "border-yellow bg-yellow/25" : "border-forest/8 bg-white/58"}`}
-      ref={rowRef}
-    >
-      <span className="grid size-11 shrink-0 place-items-center rounded-2xl" style={{ backgroundColor: `${transaction.categoryColor}20`, color: transaction.categoryColor }}>
-        <Icon aria-hidden="true" className="size-5" />
-      </span>
-      <button className="min-w-0 flex-1 text-left" onClick={onEdit} type="button">
-        <span className="block truncate text-sm font-extrabold text-ink">{transaction.memberName}</span>
-        <span className="mt-0.5 block truncate text-xs font-bold text-forest">{transaction.categoryName}</span>
-        <span className="mt-0.5 block truncate text-xs font-medium text-ink/44">
-          {formatVietnameseDate(transaction.transactionDate)}{transaction.note ? ` · ${transaction.note}` : ""}
-        </span>
-      </button>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className={`text-sm font-extrabold ${transaction.type === "income" ? "text-income" : "text-expense"}`}>
-          {transaction.type === "income" ? "+" : "-"}{formatMoney(transaction.amount)}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <Button aria-label={`Sửa giao dịch ${transaction.categoryName}`} onClick={onEdit} size="icon" variant="ghost">
-            <Pencil aria-hidden="true" className="size-4" />
-          </Button>
-          <DeleteTransactionButton onDeleted={onDeleted} transaction={transaction} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeleteTransactionButton({ transaction, onDeleted }: { transaction: TransactionView; onDeleted: (id: string) => void }) {
-  const router = useRouter();
-  const { notify } = useToast();
-  const [state, formAction, pending] = useActionState(deleteTransactionAction, initialTransactionActionState);
-
-  useEffect(() => {
-    if (state.status === "success") {
-      notify(state.message ?? "Đã xóa giao dịch.");
-      onDeleted(transaction.id);
-      router.refresh();
-    } else if (state.status === "error") {
-      notify(state.message ?? "Không thể xóa giao dịch.", "error");
-    }
-  }, [notify, onDeleted, router, state.message, state.status, transaction.id]);
-
-  return (
-    <ConfirmAction
-      action={formAction}
-      confirmLabel="Xóa giao dịch"
-      description={`Khoản ${formatMoney(transaction.amount)} thuộc danh mục ${transaction.categoryName} sẽ bị xóa khỏi household hiện tại. Thao tác này không thể hoàn tác.`}
-      pending={pending}
-      title="Xóa giao dịch này?"
-      trigger={(openDialog) => (
-        <Button aria-label={`Xóa giao dịch ${transaction.categoryName}`} disabled={pending || !transaction.canDelete} onClick={openDialog} size="icon" type="button" variant="ghost">
-          <Trash2 aria-hidden="true" className="size-4 text-expense" />
-        </Button>
-      )}
-    >
-      <input name="transactionId" type="hidden" value={transaction.id} readOnly />
-    </ConfirmAction>
-  );
-}
-
-export function TransactionForm({
-  transaction,
-  categories,
-  members,
-  currentUserId,
-  onClose,
-}: {
-  transaction?: TransactionView;
-  categories: CategoryOption[];
-  members: MemberOption[];
-  currentUserId: string;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const online = useOnlineStatus();
-  const { notify } = useToast();
-  const [type, setType] = useState<CategoryType>(transaction?.type ?? "expense");
-  const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? "");
-  const [userId, setUserId] = useState(transaction?.userId ?? currentUserId);
-  const [amountExpression, setAmountExpression] = useState(transaction ? formatAmountValue(transaction.amount) : "");
-  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate.slice(0, 10) ?? localDateInput());
-  const [note, setNote] = useState(transaction?.note ?? "");
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [receiptAmountMissing, setReceiptAmountMissing] = useState(false);
-  const [receiptScanning, setReceiptScanning] = useState(false);
-  const [receiptScanError, setReceiptScanError] = useState<string | null>(null);
-  const [showAllCategories, setShowAllCategories] = useState(false);
-  const [draftReady, setDraftReady] = useState(Boolean(transaction));
-  const [draftDirty, setDraftDirty] = useState(false);
-  const [draftRestored, setDraftRestored] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
-  const action = transaction ? updateTransactionAction : createTransactionAction;
-  const [state, formAction, pending] = useActionState(action, initialTransactionActionState);
-  const visibleCategories = categories.filter((category) => category.type === type);
-  const selectedCategoryIndex = visibleCategories.findIndex((category) => category.id === categoryId);
-  const selectedCategoryIsOutsideCollapsed = selectedCategoryIndex >= COLLAPSED_CATEGORY_LIMIT;
-  const categoriesExpanded = showAllCategories || selectedCategoryIsOutsideCollapsed;
-  const displayedCategories = categoriesExpanded
-    ? visibleCategories
-    : visibleCategories.slice(0, COLLAPSED_CATEGORY_LIMIT);
-  const amountResult = evaluateAmountExpression(amountExpression);
-
-  useEffect(() => {
-    if (transaction) return;
-
-    const timer = window.setTimeout(() => {
-      const draft = readTransactionDraft(window.localStorage, currentUserId);
-      if (draft) {
-        const categoryIsAvailable = categories.some(
-          (category) => category.id === draft.categoryId && category.type === draft.type,
-        );
-        const memberIsAvailable = members.some((member) => member.id === draft.userId);
-
-        setType(draft.type);
-        setCategoryId(categoryIsAvailable ? draft.categoryId : "");
-        setUserId(memberIsAvailable ? draft.userId : currentUserId);
-        setAmountExpression(formatAmountExpressionInput(draft.amountExpression));
-        setTransactionDate(draft.transactionDate);
-        setNote(draft.note);
-        setDraftRestored(true);
-        setDraftSavedAt(draft.updatedAt);
-      }
-      setDraftReady(true);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [categories, currentUserId, members, transaction]);
-
-  const persistDraft = useCallback((force = false) => {
-    if (transaction || (!draftReady && !force)) return null;
-    return writeTransactionDraft(window.localStorage, currentUserId, {
-      type,
-      categoryId,
-      userId,
-      amountExpression,
-      transactionDate,
-      note,
-    });
-  }, [amountExpression, categoryId, currentUserId, draftReady, note, transaction, transactionDate, type, userId]);
-
-  const closeForm = useCallback(() => {
-    if (!transaction && draftDirty) {
-      const saved = persistDraft(true);
-      if (saved) setDraftSavedAt(saved.updatedAt);
-    }
-    onClose();
-  }, [draftDirty, onClose, persistDraft, transaction]);
-
-  const applyReceiptResult = (result: ParsedReceipt) => {
-    setDraftDirty(true);
-    if (type !== "expense") {
-      setType("expense");
-      setCategoryId("");
-    }
-    setReceiptAmountMissing(result.amount === null);
-    if (result.amount !== null) setAmountExpression(formatAmountValue(result.amount));
-    if (result.transactionDate !== null) setTransactionDate(result.transactionDate);
-    if (result.categoryId !== null) setCategoryId(result.categoryId);
-  };
-
-  useEffect(() => {
-    if (transaction || !draftReady || !draftDirty) return;
-    const timer = window.setTimeout(() => {
-      const saved = persistDraft();
-      if (saved) setDraftSavedAt(saved.updatedAt);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [draftDirty, draftReady, persistDraft, transaction]);
-
-  useEffect(() => {
-    if (state.status !== "success") return;
-    if (!transaction) clearTransactionDraft(window.localStorage, currentUserId);
-    notify(state.message ?? (transaction ? "Đã cập nhật giao dịch." : "Đã lưu giao dịch."));
-    router.refresh();
-    onClose();
-  }, [currentUserId, notify, onClose, router, state.message, state.status, transaction]);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    if (!online) {
-      event.preventDefault();
-      if (transaction) {
-        notify("Cần kết nối mạng để lưu thay đổi giao dịch.", "error");
-        return;
-      }
-
-      const saved = persistDraft(true);
-      if (!saved) {
-        notify("Không thể lưu nháp trên thiết bị này.", "error");
-        return;
-      }
-      setDraftSavedAt(saved.updatedAt);
-      notify("Đã lưu nháp giao dịch trên thiết bị.");
-      onClose();
-      return;
-    }
-
-    if (!amountResult.isValid || amountResult.value === null || amountResult.value <= 0 || !categoryId || !userId || !transactionDate) {
-      event.preventDefault();
-    }
-  };
-
-  const selectType = (nextType: CategoryType) => {
-    setDraftDirty(true);
-    setType(nextType);
-    setCategoryId("");
-    setShowAllCategories(false);
-  };
-
-  const appendCalculator = (value: string) => {
-    setDraftDirty(true);
-    setReceiptAmountMissing(false);
-    setAmountExpression((current) => formatAmountExpressionInput(`${current}${value}`));
-  };
-  const clearCalculator = () => {
-    setDraftDirty(true);
-    setReceiptAmountMissing(false);
-    setAmountExpression("");
-  };
-  const backspaceCalculator = () => {
-    setDraftDirty(true);
-    setAmountExpression((current) => current.slice(0, -1));
-  };
-  const calculate = () => {
-    if (amountResult.isValid && amountResult.value !== null) {
-      setDraftDirty(true);
-      setReceiptAmountMissing(false);
-      setAmountExpression(formatAmountValue(amountResult.value));
-    }
-  };
-
-  const discardDraft = () => {
-    clearTransactionDraft(window.localStorage, currentUserId);
-    setType("expense");
-    setCategoryId("");
-    setUserId(currentUserId);
-    setAmountExpression("");
-    setTransactionDate(localDateInput());
-    setNote("");
-    setDraftDirty(false);
-    setDraftRestored(false);
-    setDraftSavedAt(null);
-    setReceiptAmountMissing(false);
-    setReceiptScanError(null);
-  };
-
-  return (
-    <Sheet
-      closeLabel="Đóng biểu mẫu giao dịch"
-      description={online ? "Dữ liệu được lưu ngay vào household hiện tại." : transaction ? "Cần kết nối mạng để lưu thay đổi giao dịch." : "Bạn đang offline. Giao dịch mới sẽ được giữ thành bản nháp trên thiết bị."}
-      onClose={pending ? () => undefined : closeForm}
-      open
-      title={transaction ? "Sửa giao dịch" : "Thêm giao dịch"}
-    >
-      <form action={formAction} className="grid gap-4" onSubmit={handleSubmit}>
-        {transaction ? <input name="transactionId" type="hidden" value={transaction.id} readOnly /> : null}
-        {state.status === "error" && state.message ? <AuthFeedback message={state.message} /> : null}
-        {!transaction && (draftRestored || draftDirty || !online) ? (
-          <div className="flex items-start gap-3 rounded-2xl border border-forest/10 bg-mint-soft/72 p-3 text-sm text-forest" role="status">
-            <FileClock aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="font-extrabold">{draftRestored ? "Đã khôi phục bản nháp" : online ? "Đang tự động lưu bản nháp" : "Bản nháp lưu trên thiết bị"}</p>
-              <p className="mt-0.5 text-xs font-semibold leading-5 text-forest/62">
-                {draftSavedAt ? `Cập nhật lúc ${formatDraftTime(draftSavedAt)}. Không chứa thông tin đăng nhập.` : "Nháp sẽ được giữ khi bạn đóng biểu mẫu."}
-              </p>
-            </div>
-            <button className="min-h-9 rounded-xl px-2 text-xs font-extrabold hover:bg-forest/8" onClick={discardDraft} type="button">
-              Xóa nháp
-            </button>
-          </div>
-        ) : null}
-        <fieldset>
-          <legend className="mb-2 text-sm font-extrabold text-ink/76">Loại giao dịch</legend>
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-mist/75 p-1.5">
-            <button aria-pressed={type === "expense"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-45 ${type === "expense" ? "bg-paper-raised text-expense shadow-sm" : "text-ink/48"}`} disabled={pending || receiptScanning} onClick={() => selectType("expense")} type="button">
-              <ArrowDownRight aria-hidden="true" className="size-4" /> Chi tiêu
-            </button>
-            <button aria-pressed={type === "income"} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-45 ${type === "income" ? "bg-paper-raised text-income shadow-sm" : "text-ink/48"}`} disabled={pending || receiptScanning} onClick={() => selectType("income")} type="button">
-              <ArrowUpRight aria-hidden="true" className="size-4" /> Thu nhập
-            </button>
-          </div>
-        </fieldset>
-
-        <div>
-          <Input
-            aria-invalid={state.fieldErrors?.amountExpression ? true : undefined}
-            disabled={pending || receiptScanning}
-            inputMode="decimal"
-            label="Số tiền hoặc biểu thức"
-            name="amountExpression"
-            onChange={(event) => {
-              setDraftDirty(true);
-              setReceiptAmountMissing(false);
-              setAmountExpression(formatAmountExpressionInput(event.target.value));
-            }}
-            placeholder="Ví dụ: 125.000 + 25.000"
-            value={amountExpression}
-          />
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className={`text-xs font-semibold ${amountResult.isValid && amountResult.value ? "text-income" : "text-ink/45"}`}>
-              {amountResult.isValid && amountResult.value ? `Kết quả: ${formatMoney(amountResult.value)}` : amountResult.errorMessage ?? "Có thể nhập phép tính + − × ÷ %"}
-            </p>
-            <div className="flex items-center gap-2">
-              <ReceiptScanButton
-                categories={categories}
-                disabled={pending}
-                onError={setReceiptScanError}
-                onExtracted={applyReceiptResult}
-                onScanningChange={(scanning) => {
-                  setReceiptScanning(scanning);
-                  if (scanning) setReceiptScanError(null);
-                }}
-              />
-              <Button onClick={() => setShowCalculator((open) => !open)} size="sm" type="button" variant="secondary">
-                {showCalculator ? "Ẩn máy tính" : "Mở máy tính"}
-              </Button>
-            </div>
-          </div>
-          {receiptAmountMissing ? (
-            <p className="mt-2 text-xs font-semibold text-expense">
-              Không nhận được số tiền từ ảnh, vui lòng nhập tay.
-            </p>
-          ) : null}
-          {receiptScanError ? (
-            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-expense">
-              <TriangleAlert aria-hidden="true" className="size-3.5 shrink-0" />
-              {receiptScanError}
-            </p>
-          ) : null}
-          {state.fieldErrors?.amountExpression ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.amountExpression}</p> : null}
-          {showCalculator ? <CalculatorPad onAppend={appendCalculator} onBackspace={backspaceCalculator} onCalculate={calculate} onClear={clearCalculator} /> : null}
-        </div>
-
-        <Select disabled={pending || receiptScanning || members.length === 0} label="Người thực hiện" name="userId" onChange={(event) => {
-          setDraftDirty(true);
-          setUserId(event.target.value);
-        }} required value={userId}>
-          <option disabled value="">Chọn thành viên</option>
-          {members.map((member) => <option key={member.id} value={member.id}>{member.id === currentUserId ? `Bạn · ${member.name}` : member.name}</option>)}
-        </Select>
-        {state.fieldErrors?.userId ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.userId}</p> : null}
-
-        <Input disabled={pending || receiptScanning} label="Ngày giao dịch" name="transactionDate" onChange={(event) => {
-          setDraftDirty(true);
-          setTransactionDate(event.target.value);
-        }} required type="date" value={transactionDate} />
-        {state.fieldErrors?.transactionDate ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.transactionDate}</p> : null}
-
-        <label className="text-sm font-bold text-ink/76">
-          <span className="mb-2 block">Ghi chú</span>
-          <textarea className="min-h-24 w-full resize-y rounded-2xl border border-forest/12 bg-paper-raised/86 px-4 py-3 text-base font-semibold text-ink outline-none transition placeholder:text-ink/34 focus:border-indigo/55 focus:ring-4 focus:ring-indigo/10" disabled={pending || receiptScanning} maxLength={240} name="note" onChange={(event) => {
-            setDraftDirty(true);
-            setNote(event.target.value);
-          }} placeholder="Ví dụ: Mua đồ ăn cuối tuần" value={note} />
-        </label>
-        {state.fieldErrors?.note ? <p className="-mt-2 text-xs font-semibold text-expense">{state.fieldErrors.note}</p> : null}
-
-        <fieldset disabled={pending || receiptScanning}>
-          <legend className="mb-2 text-sm font-extrabold text-ink/76">
-            Chọn danh mục {categoryTypeLabelLowercase(type)}
-          </legend>
-          <input name="categoryId" type="hidden" value={categoryId} readOnly />
-          {visibleCategories.length > 0 ? (
-            <>
-              <div className="grid grid-cols-3 gap-2">
-                {displayedCategories.map((category) => {
-                  const Icon = CATEGORY_ICONS[category.icon] ?? CATEGORY_ICON_FALLBACK;
-                  const selected = categoryId === category.id;
-
-                  return (
-                    <button
-                      aria-label={`${selected ? "Đã chọn" : "Chọn"} danh mục ${category.name}`}
-                      aria-pressed={selected}
-                      className={`relative flex min-h-24 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition ${selected ? "font-extrabold shadow-sm" : "border-forest/10 bg-paper-raised/66 font-bold hover:border-forest/22 hover:bg-mist/55"}`}
-                      key={category.id}
-                      onClick={() => {
-                        setDraftDirty(true);
-                        setCategoryId(category.id);
-                      }}
-                      style={selected ? { backgroundColor: `${category.color}18`, borderColor: category.color } : undefined}
-                      type="button"
-                    >
-                      {selected ? (
-                        <span
-                          aria-hidden="true"
-                          className="absolute right-2 top-2 grid size-5 place-items-center rounded-full text-white"
-                          style={{ backgroundColor: category.color }}
-                        >
-                          <Check className="size-3" strokeWidth={3} />
-                        </span>
-                      ) : null}
-                      <span
-                        className="grid size-10 place-items-center rounded-full"
-                        style={{ backgroundColor: `${category.color}20`, color: category.color }}
-                      >
-                        <Icon aria-hidden="true" className="size-5" />
-                      </span>
-                      <span className="line-clamp-2 max-w-full text-xs leading-4 text-ink">
-                        {category.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {visibleCategories.length > COLLAPSED_CATEGORY_LIMIT && !(categoriesExpanded && selectedCategoryIsOutsideCollapsed) ? (
-                <Button
-                  className="mt-2 w-full"
-                  onClick={() => setShowAllCategories((current) => !current)}
-                  size="sm"
-                  type="button"
-                  variant="secondary"
-                >
-                  {categoriesExpanded ? (
-                    <><ChevronUp aria-hidden="true" className="size-4" /> Thu gọn</>
-                  ) : (
-                    <><ChevronDown aria-hidden="true" className="size-4" /> Xem thêm {visibleCategories.length - COLLAPSED_CATEGORY_LIMIT} danh mục</>
-                  )}
-                </Button>
-              ) : null}
-            </>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-forest/16 bg-mist/40 p-4 text-center">
-              <p className="text-sm font-bold text-ink/52">Chưa có danh mục {categoryTypeLabelLowercase(type)}.</p>
-              <Link className="mt-2 inline-flex min-h-10 items-center rounded-xl px-3 text-sm font-extrabold text-forest hover:bg-mist" href="/categories">
-                Tạo danh mục mới
-              </Link>
-            </div>
-          )}
-          {state.fieldErrors?.categoryId ? <p className="mt-2 text-xs font-semibold text-expense">{state.fieldErrors.categoryId}</p> : null}
-        </fieldset>
-
-        <div className="sticky bottom-0 z-20 -mx-5 mt-1 grid grid-cols-[0.72fr_1.28fr] gap-3 border-t border-forest/10 bg-paper/96 px-5 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgba(31,61,43,0.08)] backdrop-blur-xl sm:-mx-6 sm:px-6 sm:pb-0">
-          <Button disabled={pending} onClick={closeForm} type="button" variant="secondary">Hủy</Button>
-          <Button disabled={pending || receiptScanning || visibleCategories.length === 0 || members.length === 0 || (!online && Boolean(transaction))} type="submit">
-            {pending ? "Đang lưu..." : !online && !transaction ? "Lưu bản nháp" : transaction ? "Lưu thay đổi" : "Lưu giao dịch"}
-          </Button>
-        </div>
-      </form>
-    </Sheet>
-  );
-}
-
-function CalculatorPad({ onAppend, onBackspace, onCalculate, onClear }: { onAppend: (value: string) => void; onBackspace: () => void; onCalculate: () => void; onClear: () => void }) {
-  const keys = ["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "-", "0", ".", "%", "+"];
-  return (
-    <div className="mt-3 rounded-2xl border border-forest/10 bg-mist/45 p-2">
-      <div className="grid grid-cols-4 gap-2">
-        {keys.map((key) => <button className="min-h-11 rounded-xl bg-paper-raised text-sm font-extrabold text-forest shadow-sm hover:bg-white" key={key} onClick={() => onAppend(key)} type="button">{key}</button>)}
-        <button className="min-h-11 rounded-xl bg-rose/35 text-sm font-extrabold text-expense" onClick={onClear} type="button">AC</button>
-        <button className="min-h-11 rounded-xl bg-paper-raised text-sm font-extrabold text-forest" onClick={onBackspace} type="button">⌫</button>
-        <button className="col-span-2 min-h-11 rounded-xl bg-forest text-sm font-extrabold text-paper" onClick={onCalculate} type="button">= Tính kết quả</button>
-      </div>
-    </div>
-  );
-}
-
-function SummaryLine({ label, value, tone }: { label: string; value: string; tone: "income" | "expense" }) {
-  return <div className="flex items-center justify-between gap-4"><span className="font-semibold text-ink/48">{label}</span><span className={`font-extrabold ${tone === "income" ? "text-income" : "text-expense"}`}>{value}</span></div>;
-}
-
-function formatMoney(value: number) {
-  const formatted = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(Math.abs(value));
-  return `${formatted} đ`;
-}
-
-function formatSignedMoney(value: number) {
-  return `${value >= 0 ? "+" : "-"}${formatMoney(value)}`;
-}
-
-function localDateInput() {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "2026";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
-}
-
-function formatDraftTime(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(value));
-}
-
-function groupTransactions(transactions: TransactionView[]) {
-  const groups = new Map<string, { date: string; label: string; total: number; items: TransactionView[] }>();
-  for (const transaction of transactions) {
-    const date = transaction.transactionDate.slice(0, 10);
-    const group = groups.get(date) ?? { date, label: formatVietnameseDate(transaction.transactionDate), total: 0, items: [] };
-    group.total += transaction.type === "income" ? transaction.amount : -transaction.amount;
-    group.items.push(transaction);
-    groups.set(date, group);
-  }
-  return [...groups.values()];
 }

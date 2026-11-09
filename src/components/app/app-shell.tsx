@@ -8,7 +8,7 @@ import { AssistantChat } from "@/components/assistant/assistant-chat";
 import { Brand } from "@/components/brand";
 import { DesktopNavigation, MobileNavigation } from "@/components/app/navigation";
 import { NotificationBell } from "@/components/app/notification-bell";
-import { TransactionForm } from "@/components/transactions/transaction-manager";
+import { TransactionForm } from "@/components/transactions/transaction-form";
 import type { NotificationTransactionItem } from "@/lib/notifications/data";
 import type { CategoryOption, MemberOption } from "@/lib/transactions/data";
 import { LogoutButton } from "@/components/auth/logout-button";
