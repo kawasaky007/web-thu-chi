@@ -29,8 +29,9 @@ function makeRow(overrides: Partial<TransactionView> = {}): TransactionView {
     title: "",
     note: "Phở bò",
     transactionDate: "2020-03-05",
-    // 07:32 UTC = 14:32 giờ Việt Nam
-    createdAt: "2020-03-05T07:32:00.000Z",
+    // Dạng thật của cột `timestamp without time zone`: giờ UTC, không có "Z".
+    // 07:32 UTC = 14:32 giờ Việt Nam.
+    createdAt: "2020-03-05T07:32:00.123456",
     categoryName: "Ăn uống",
     categoryColor: "#087a5b",
     categoryIcon: "food",
@@ -70,37 +71,72 @@ describe("formatTransactionDayLabel", () => {
   });
 });
 
+// created_at là `timestamp without time zone` với `default now()`: Postgres lưu giờ UTC nhưng
+// PostgREST trả về chuỗi KHÔNG có offset ("2020-03-05T07:32:00.123456"), và theo spec thì chuỗi
+// date-time không offset được parse theo múi giờ MÁY. Trên điện thoại UTC+7 mọi giờ sớm đi 7 tiếng,
+// còn giao dịch nhập sau 17:00 UTC thì lệch hẳn sang ngày khác nên giờ bị ẩn mất.
+// Vì thế fixture ở đây dùng ĐÚNG dạng cột trả về, không thêm "Z" — thêm "Z" là lý do bộ test cũ
+// xanh trong khi sản phẩm sai. Và chạy ở nhiều TZ vì trên TZ=UTC hai cách parse cho cùng kết quả,
+// nên một test chỉ chạy ở UTC sẽ không bao giờ phát hiện được lỗi này.
 describe("formatTransactionTime", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("trả null khi createdAt null", () => {
     expect(formatTransactionTime(null, "2020-03-05")).toBeNull();
   });
 
-  it("trả giờ theo múi giờ Việt Nam khi nhập đúng ngày của giao dịch", () => {
-    expect(formatTransactionTime("2020-03-05T07:32:00.000Z", "2020-03-05")).toBe("14:32");
+  it("trả null khi chuỗi không phải thời điểm", () => {
+    expect(formatTransactionTime("khong-phai-gio", "2020-03-05")).toBeNull();
   });
 
-  it("nửa đêm là 00:xx, không bao giờ là 24:xx", () => {
-    // 17:05 UTC = 00:05 ngày hôm sau ở Việt Nam. hour12: false được một số bản ICU phân giải thành
-    // h24 và in "24:05"; giờ trên dòng phụ chính là thứ tính năng này hứa nên không được đọc như vậy.
-    expect(formatTransactionTime("2020-03-04T17:05:00.000Z", "2020-03-05")).toBe("00:05");
-    expect(formatTransactionTime("2020-03-04T17:05:00.000Z", "2020-03-05")).not.toMatch(/^24:/);
-  });
+  for (const tz of ["UTC", "Asia/Ho_Chi_Minh", "America/Los_Angeles", "Pacific/Auckland"]) {
+    describe(`TZ=${tz}`, () => {
+      beforeEach(() => {
+        // Node đọc lại TZ khi gán process.env.TZ, nên stub này thật sự đổi cách Date parse.
+        vi.stubEnv("TZ", tz);
+      });
 
-  it("ẩn giờ khi ngày nhập khác ngày của giao dịch", () => {
-    // Nhập muộn cho ngày cũ: "22:10" nằm dưới header "05/03/2020" sẽ bị đọc thành "chi lúc 22:10
-    // ngày 5/3", mà 22:10 là giờ NHẬP ngày 20/3. Thà không có giờ hơn là giờ của ngày khác.
-    expect(formatTransactionTime("2020-03-20T15:10:00.000Z", "2020-03-05")).toBeNull();
-  });
+      it("đọc chuỗi không offset là UTC, không phải giờ máy", () => {
+        expect(formatTransactionTime("2020-03-05T07:32:00", "2020-03-05")).toBe("14:32");
+      });
 
-  it("so ngày nhập theo giờ Việt Nam, không theo UTC", () => {
-    // 17:00 UTC ngày 05 đã là 00:00 ngày 06 ở Việt Nam: tính theo UTC sẽ coi là cùng ngày và hiện giờ.
-    expect(formatTransactionTime("2020-03-05T17:00:00.000Z", "2020-03-05")).toBeNull();
-    expect(formatTransactionTime("2020-03-05T16:59:00.000Z", "2020-03-05")).toBe("23:59");
-  });
+      it("nhận microsecond 6 chữ số như Postgres trả về", () => {
+        expect(formatTransactionTime("2020-03-05T07:32:00.123456", "2020-03-05")).toBe("14:32");
+      });
 
-  it("cột transaction_date có phần giờ thì vẫn so theo phần ngày của nó", () => {
-    expect(formatTransactionTime("2020-03-05T07:32:00.000Z", "2020-03-05T00:00:00+00:00")).toBe("14:32");
-  });
+      it("nửa đêm là 00:xx, không bao giờ là 24:xx", () => {
+        // 17:05 UTC = 00:05 ngày hôm sau ở Việt Nam. hour12: false được một số bản ICU phân giải thành
+        // h24 và in "24:05"; giờ trên dòng phụ chính là thứ tính năng này hứa nên không được đọc như vậy.
+        expect(formatTransactionTime("2020-03-04T17:05:00", "2020-03-05")).toBe("00:05");
+        expect(formatTransactionTime("2020-03-04T17:05:00", "2020-03-05")).not.toMatch(/^24:/);
+      });
+
+      it("ẩn giờ khi ngày nhập khác ngày của giao dịch", () => {
+        // Nhập muộn cho ngày cũ: "22:10" nằm dưới header "05/03/2020" sẽ bị đọc thành "chi lúc 22:10
+        // ngày 5/3", mà 22:10 là giờ NHẬP ngày 20/3. Thà không có giờ hơn là giờ của ngày khác.
+        expect(formatTransactionTime("2020-03-20T15:10:00", "2020-03-05")).toBeNull();
+      });
+
+      it("so ngày nhập theo giờ Việt Nam, không theo UTC", () => {
+        // 17:00 UTC ngày 05 đã là 00:00 ngày 06 ở Việt Nam: tính theo UTC sẽ coi là cùng ngày và hiện giờ.
+        expect(formatTransactionTime("2020-03-05T17:00:00", "2020-03-05")).toBeNull();
+        expect(formatTransactionTime("2020-03-05T16:59:00", "2020-03-05")).toBe("23:59");
+      });
+
+      it("cột transaction_date có phần giờ thì vẫn so theo phần ngày của nó", () => {
+        expect(formatTransactionTime("2020-03-05T07:32:00", "2020-03-05T00:00:00")).toBe("14:32");
+      });
+
+      it("không phá chuỗi đã có offset sẵn", () => {
+        // Nối "Z" vào chuỗi đã có offset cho ra Invalid Date, nên phải nhận ra offset rồi bỏ qua.
+        expect(formatTransactionTime("2020-03-05T07:32:00.000Z", "2020-03-05")).toBe("14:32");
+        expect(formatTransactionTime("2020-03-05T14:32:00+07:00", "2020-03-05")).toBe("14:32");
+        expect(formatTransactionTime("2020-03-04T23:32:00-08:00", "2020-03-05")).toBe("14:32");
+      });
+    });
+  }
 });
 
 describe("TransactionList", () => {
@@ -120,7 +156,7 @@ describe("TransactionList", () => {
   });
 
   it("dòng nhập muộn cho ngày cũ chỉ còn ghi chú, không có giờ của ngày khác", () => {
-    renderList([makeRow({ createdAt: "2020-03-20T15:10:00.000Z" })]);
+    renderList([makeRow({ createdAt: "2020-03-20T15:10:00" })]);
     expect(screen.getByText("Phở bò")).toBeInTheDocument();
     expect(screen.queryByText(/22:10/)).not.toBeInTheDocument();
     expect(screen.queryByText(/·/)).not.toBeInTheDocument();
@@ -176,7 +212,7 @@ describe("TransactionList — render từng phần", () => {
   function manyDays(count: number) {
     return Array.from({ length: count }, (_, index) => {
       const day = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
-      return makeRow({ id: `d${index}`, transactionDate: day, createdAt: `${day}T07:00:00.000Z`, amount: 1000 });
+      return makeRow({ id: `d${index}`, transactionDate: day, createdAt: `${day}T07:00:00`, amount: 1000 });
     });
   }
 

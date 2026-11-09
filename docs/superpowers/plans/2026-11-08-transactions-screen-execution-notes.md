@@ -264,3 +264,77 @@ Ruling R34 — ghi nhận: lần chạy gate ĐẦU của fix wave bị flake (2
   timeout, 930s) do tranh chấp máy trên ổ ngoài; lần chạy lại sạch 13.6s, không đổi code.
   Vitess trên ổ ngoài này dễ vỡ khi chạy đồng thời — cần báo người dùng.
 Final fix wave: 9 assertion CŨ bị đổi ở 6 file — phải audit từng cái ở scoped re-review.
+
+---
+
+## Sau khi commit — xác minh R20 (2026-11-09)
+
+Người dùng hỏi "thử tay trên Supabase thật là làm gì". Hoá ra phần lớn làm được mà
+KHÔNG cần session đăng nhập: gọi REST API bằng anon key (`NEXT_PUBLIC_`, key công khai)
+ở chế độ chỉ đọc. R20 nói "sẽ cần chạm DB thật của người dùng, ngoài phạm vi" — đúng với
+integration test trong CI, nhưng sai với một probe đọc chạy tay. Giả định đó làm R20 ở
+lại danh sách "chờ người dùng" lâu hơn mức cần thiết.
+
+Ruling R38 — ĐÓNG phần cú pháp của R20 bằng probe chỉ-đọc. Năm chuỗi sinh ra từ
+  keysetFilter/searchFilter đều parse: keyset lồng 3 tầng `or(and(or(and())))`, keyset khi
+  cursor có created_at null, search chứa `, ( ) \ " % _ *`, và `category_id.in.(…)`.
+  RLS chặn anon nên trả `[]` chứ không có dòng nào — nhưng câu hỏi là PARSE, không phải dữ
+  liệu, nên `[]` + HTTP 200 là câu trả lời đủ.
+  Quan trọng hơn kết quả: probe được chứng minh là FAIL ĐƯỢC — cú pháp vỡ và dấu phẩy
+  không bọc nháy đều cho `PGRST100 failed to parse logic tree`. Không có hai ca đó thì
+  bảng kết quả chỉ là một probe luôn xanh, đúng bệnh đã bắt ở Task 7.
+  — Nếu sai: không sai được; chuỗi hoặc parse hoặc không, và cả hai hướng đã quan sát.
+
+Ruling R39 — kiểu cột (câu (f) của R20) xác định được qua lỗi cast, KHÔNG phải đoán:
+  `transactions.transaction_date` và `created_at` đều là `timestamp without time zone`.
+  Thước đo được chuẩn hoá trước trên ba cột đã biết kiểu từ migration: savings_goals
+  .created_at → "timestamp with time zone", savings_goals.target_date → "date",
+  transactions.id → "uuid". Đọc đúng cả ba rồi mới tin kết quả ở hai cột cần biết.
+  Hệ quả LÀNH: biên tháng vẫn đúng. vietnamMonthBounds gửi `...T00:00:00+07:00`, Postgres
+  cast sang timestamp naive thì BỎ IM offset, còn `2026-11-01 00:00:00`; mà actions.ts ghi
+  `toTimestamp(date) = "${date}T00:00:00"` cũng là nửa đêm naive theo ngày VN. Naive so với
+  naive → khớp. Cái `+07:00` là nhiễu vô hại, không phải lỗi, không sửa.
+  — Nếu sai: đã chuẩn hoá thước đo nên khả năng rất thấp; kiểm lại bằng 1 câu SQL.
+
+Ruling R40 — LỖI THẬT do spec của tôi, đã sửa: created_at là naive + `default now()` nên
+  lưu giờ UTC mà không có dấu hiệu nào nói đó là UTC. PostgREST trả `2026-11-09T07:12:33
+  .123456`, và theo spec ES chuỗi date-time không offset được parse theo giờ MÁY. Trên máy
+  UTC+7: nhập 14:12 hiện 07:12; nhập 22:30 hiện 15:30; nhập 02:00 thì lệch ngày nên ẨN giờ
+  luôn. Code cũ (12016b8) chưa bao giờ hiện created_at thành giờ — formatTransactionTime là
+  thứ đợt này thêm, nên lỗi này do đợt này sinh ra. Cùng lớp với bug shiftMonth tôi đã bắt
+  ở Task 2; tôi bắt ở đó rồi bỏ sót ở đây.
+  Quyết: neo vào UTC trong parseDbTimestamp, private trong transaction-list.tsx vì đúng một
+  chỗ gọi. Đường backup ghi created_at thì vô tình đã đúng (toISOString() là UTC, Postgres
+  bỏ "Z" và giữ lại đúng giờ UTC) → không chạm.
+  Hai điều kiện trong helper được thử trước khi viết, không phải phòng xa: nối "Z" vào chuỗi
+  ĐÃ có offset cho ra Invalid Date, và dạng chỉ-có-ngày thì spec đã quy định là UTC rồi.
+  — Nếu sai (giả sử TimeZone của DB không phải UTC): giờ lệch theo hướng ngược lại; người
+  dùng đã kiểm `current_setting('TimeZone')` = UTC trước khi tôi sửa.
+
+Ruling R41 — nguyên nhân gốc của R40 là HÌNH DẠNG FIXTURE, nên sửa ở đó mới là sửa:
+  mọi fixture created_at trong transaction-list.test.tsx đều có "Z" — dạng `timestamptz`
+  trả về, không phải dạng cột này trả về. Test không sai logic, sai hình dạng input, và
+  test sai hình dạng input thì xanh đỏ gì cũng vô nghĩa.
+  Thêm một tầng nữa: trên TZ=UTC, "parse local" và "parse UTC" cho CÙNG kết quả, nên test
+  chỉ chạy ở UTC không bao giờ fail dù code sai. Vì vậy fixture đổi sang dạng naive VÀ lặp
+  qua 4 TZ (dùng lại đúng pattern vi.stubEnv("TZ") của bộ test shiftMonth ở Task 2). Trước
+  khi sửa: nhóm TZ=UTC pass sạch 7/7, ba TZ còn lại đổ 15 — ba TZ đó mới là cái test.
+  Thêm 1 test cursor dùng dạng naive thật: decodeTransactionCursor vốn đã an toàn
+  (CURSOR_DATE_PATTERN có lường phần giờ), nhưng KHÔNG test nào chứng minh — mà nếu nó
+  không nhận thì mỗi lần "tải thêm" ở view "Tất cả" lặng lẽ rơi về trang đầu, không lỗi.
+  — Nếu sai: không sai; gate 58 file / 452 test xanh (trước đó 427).
+
+Ruling R42 — ghi nhận (KHÔNG sửa): index `(household_id, transaction_date desc, created_at
+  desc, id desc)` ở secure_transactions.sql:62 có NULLS FIRST (mặc định của desc), trong khi
+  query mới dùng `created_at desc NULLS LAST` để khớp điều kiện keyset. Hai thứ lệch nhau
+  nên Postgres không dùng được index cho bước sort. Chưa đau ở vài trăm dòng.
+  Quyết: không sửa — fix đúng là một index khớp nulls last, tức migration SQL, thứ đợt này
+  cố ý không ship. Báo người dùng.
+  — Nếu sai: view "Tất cả" chậm dần khi household nhiều giao dịch; fix là 1 index.
+
+### Còn mở (buộc phải có session đăng nhập — tôi không nhập mật khẩu người dùng)
+
+1. `?view=all` lật tới trang 3: không dòng nào lặp hay mất.
+2. Thêm giao dịch ngày tháng trước (hôm nay nhập) → phải nằm đúng trang theo ngày.
+
+Các mục (c) (d) (e) (f) của R20 đã đóng bằng R38/R39.

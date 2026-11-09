@@ -341,6 +341,14 @@ describe("getTransactionsAllData", () => {
     expect(decodeTransactionCursor(encoded)).toEqual(cursor);
   });
 
+  // Cursor được dựng từ đúng giá trị API trả về, và hai cột này là `timestamp without time zone`
+  // nên chuỗi KHÔNG có offset. Nếu CURSOR_DATE_PATTERN không nhận dạng đó thì mọi lần "tải thêm" ở
+  // view "Tất cả" lặng lẽ rơi về trang đầu mà không có lỗi nào, nên ghim đúng dạng thật ở đây.
+  it("decode nhận đúng dạng chuỗi mà cột timestamp-không-múi-giờ trả về", () => {
+    const cursor = { transactionDate: "2026-10-20T00:00:00", createdAt: "2026-10-20T01:00:00.123456", id: uuid(1) };
+    expect(decodeTransactionCursor(encodeTransactionCursor(cursor))).toEqual(cursor);
+  });
+
   it("decode trả null với chuỗi rác", () => {
     expect(decodeTransactionCursor("%%%không-phải-base64")).toBeNull();
     expect(decodeTransactionCursor(Buffer.from("not json").toString("base64url"))).toBeNull();

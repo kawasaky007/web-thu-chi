@@ -35,6 +35,23 @@ const timeFormatter = new Intl.DateTimeFormat("vi-VN", {
 // en-CA cho định dạng YYYY-MM-DD, khớp với phần ngày của transactionDate.
 const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE });
 
+// Chuỗi đã mang offset thì để nguyên; nối thêm "Z" vào đó cho ra Invalid Date.
+const HAS_UTC_OFFSET = /(Z|[+-]\d{2}:?\d{2})$/i;
+
+// transactions.created_at và transaction_date là `timestamp without time zone`, nên PostgREST trả
+// về chuỗi KHÔNG có offset ("2020-03-05T07:32:00.123456") dù giá trị bên trong là giờ UTC — cột
+// dùng `default now()` và TimeZone của database là UTC. Theo spec, chuỗi date-time không offset
+// được parse theo múi giờ MÁY, nên để `new Date()` tự lo sẽ làm giờ lệch đúng bằng offset của máy:
+// ở Việt Nam là sớm 7 tiếng, và với giao dịch nhập sau 17:00 UTC thì lệch sang ngày khác khiến giờ
+// bị ẩn luôn. Vì vậy phải tự neo vào UTC.
+// Dạng chỉ có ngày ("2020-03-05") thì spec đã quy định là UTC rồi, không được thêm gì.
+function parseDbTimestamp(value: string): Date | null {
+  const hasTimePart = value.includes("T") || value.includes(" ");
+  const anchored = hasTimePart && !HAS_UTC_OFFSET.test(value) ? `${value.replace(" ", "T")}Z` : value;
+  const parsed = new Date(anchored);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // transaction_date là cột có phần giờ, nhưng giờ đó không bao giờ dùng được: form chỉ nhập ngày và
 // actions ghi `${date}T00:00:00`, nên mọi giao dịch đều là nửa đêm. Giờ duy nhất có thật là created_at
 // — giờ NHẬP, không phải giờ chi tiêu. Trùng ngày thì hai thứ đó là một nên hiện được; khác ngày (nhập
@@ -43,8 +60,8 @@ const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE });
 // created_at cho phép null (dữ liệu cũ), nên không có giờ thì không hiện gì thay vì đoán.
 export function formatTransactionTime(createdAt: string | null, transactionDate: string): string | null {
   if (!createdAt) return null;
-  const parsed = new Date(createdAt);
-  if (Number.isNaN(parsed.getTime())) return null;
+  const parsed = parseDbTimestamp(createdAt);
+  if (!parsed) return null;
   // So với đúng phần ngày đang làm khoá nhóm (header của dòng), để không có cách đọc transactionDate thứ hai.
   if (dayFormatter.format(parsed) !== transactionDate.slice(0, 10)) return null;
   return timeFormatter.format(parsed);
